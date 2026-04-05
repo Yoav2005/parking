@@ -10,6 +10,16 @@ class Settings(BaseSettings):
     )
 
     DATABASE_URL: str = "postgresql+asyncpg://parkpass:parkpass@db:5432/parkpass"
+
+    @property
+    def async_database_url(self) -> str:
+        """Ensure the URL uses asyncpg driver (Railway provides plain postgresql://)."""
+        url = self.DATABASE_URL
+        if url.startswith("postgres://"):
+            url = url.replace("postgres://", "postgresql+asyncpg://", 1)
+        elif url.startswith("postgresql://") and "+asyncpg" not in url:
+            url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+        return url
     REDIS_URL: str = "redis://redis:6379"
     SECRET_KEY: str = "changeme-in-production-use-a-long-random-string"
     ALGORITHM: str = "HS256"
