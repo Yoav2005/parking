@@ -1,0 +1,2251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ParkPass Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --primary: #003d9b;
+      --primary-dark: #002d7a;
+      --primary-light: #0052cc;
+      --bg: #f3f4f6;
+      --card: #ffffff;
+      --text: #191c1e;
+      --text-secondary: #6b7280;
+      --success: #16a34a;
+      --success-bg: #dcfce7;
+      --danger: #dc2626;
+      --border: #e5e7eb;
+      --shadow: 0 8px 32px rgba(0,0,0,0.06);
+      --radius-card: 12px;
+      --radius-sm: 8px;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── Login Modal ── */
+    #login-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.55);
+      backdrop-filter: blur(4px);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+    #login-overlay.visible { display: flex; }
+
+    .login-card {
+      background: var(--card);
+      border-radius: 16px;
+      padding: 40px 44px;
+      width: 100%;
+      max-width: 420px;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.18);
+    }
+    .login-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 28px;
+    }
+    .login-logo-icon {
+      width: 40px;
+      height: 40px;
+      background: linear-gradient(135deg, var(--primary), var(--primary-light));
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .login-logo-icon svg { color: #fff; }
+    .login-logo-text {
+      font-family: 'Manrope', sans-serif;
+      font-weight: 800;
+      font-size: 20px;
+      color: var(--primary);
+    }
+    .login-title {
+      font-family: 'Manrope', sans-serif;
+      font-weight: 700;
+      font-size: 22px;
+      margin-bottom: 6px;
+    }
+    .login-subtitle {
+      font-size: 14px;
+      color: var(--text-secondary);
+      margin-bottom: 28px;
+    }
+    .form-group { margin-bottom: 16px; }
+    .form-group label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 6px;
+    }
+    .form-group input {
+      width: 100%;
+      padding: 11px 14px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 14px;
+      font-family: 'Inter', sans-serif;
+      color: var(--text);
+      background: #fafafa;
+      transition: border-color 0.2s;
+      outline: none;
+    }
+    .form-group input:focus { border-color: var(--primary); background: #fff; }
+    .login-btn {
+      width: 100%;
+      padding: 12px;
+      background: linear-gradient(135deg, var(--primary), var(--primary-light));
+      color: #fff;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-size: 15px;
+      font-weight: 600;
+      font-family: 'Inter', sans-serif;
+      cursor: pointer;
+      margin-top: 8px;
+      transition: opacity 0.2s;
+    }
+    .login-btn:hover { opacity: 0.92; }
+    .login-error {
+      display: none;
+      margin-top: 14px;
+      padding: 10px 14px;
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      border-radius: var(--radius-sm);
+      color: var(--danger);
+      font-size: 13px;
+    }
+    .login-error.visible { display: block; }
+
+    /* ── Layout ── */
+    #dashboard { display: none; }
+    #dashboard.visible { display: flex; min-height: 100vh; }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      width: 240px;
+      min-width: 240px;
+      background: var(--card);
+      display: flex;
+      flex-direction: column;
+      padding: 28px 0;
+      box-shadow: 2px 0 12px rgba(0,0,0,0.04);
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow: hidden;
+    }
+    .sidebar-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 24px 28px;
+      border-bottom: 1px solid var(--border);
+    }
+    .sidebar-logo-icon {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, var(--primary), var(--primary-light));
+      border-radius: 9px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .sidebar-logo-text {
+      font-family: 'Manrope', sans-serif;
+      font-weight: 800;
+      font-size: 18px;
+      color: var(--primary);
+    }
+    .sidebar-logo-badge {
+      font-size: 10px;
+      font-weight: 700;
+      background: var(--primary);
+      color: #fff;
+      padding: 2px 6px;
+      border-radius: 4px;
+      margin-left: auto;
+      letter-spacing: 0.5px;
+    }
+    .sidebar-section {
+      padding: 20px 12px 8px;
+    }
+    .sidebar-section-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1.2px;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      padding: 0 12px;
+      margin-bottom: 6px;
+    }
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      padding: 10px 12px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      transition: all 0.15s;
+      text-decoration: none;
+    }
+    .nav-item:hover { background: var(--bg); color: var(--text); }
+    .nav-item.active {
+      background: linear-gradient(135deg, rgba(0,61,155,0.1), rgba(0,82,204,0.08));
+      color: var(--primary);
+      font-weight: 600;
+    }
+    .nav-item svg { flex-shrink: 0; width: 18px; height: 18px; }
+    .nav-badge {
+      margin-left: auto;
+      background: var(--primary);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 10px;
+    }
+    .sidebar-footer {
+      margin-top: auto;
+      padding: 16px 12px;
+      border-top: 1px solid var(--border);
+    }
+    .generate-btn {
+      width: 100%;
+      padding: 11px 16px;
+      background: linear-gradient(135deg, var(--primary), var(--primary-light));
+      color: #fff;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 600;
+      font-family: 'Inter', sans-serif;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      justify-content: center;
+      margin-bottom: 12px;
+      transition: opacity 0.2s;
+    }
+    .generate-btn:hover { opacity: 0.9; }
+    .admin-user {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px;
+      border-radius: var(--radius-sm);
+    }
+    .admin-avatar {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--primary), var(--primary-light));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-size: 13px;
+      font-weight: 700;
+      font-family: 'Manrope', sans-serif;
+      flex-shrink: 0;
+    }
+    .admin-info { flex: 1; min-width: 0; }
+    .admin-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .admin-role {
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+    .logout-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--text-secondary);
+      padding: 4px;
+      border-radius: 4px;
+      transition: color 0.15s;
+    }
+    .logout-btn:hover { color: var(--danger); }
+
+    /* ── Main content ── */
+    .main {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header bar ── */
+    .header-bar {
+      background: var(--card);
+      padding: 16px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+    .header-search {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 8px 14px;
+      width: 280px;
+    }
+    .header-search input {
+      border: none;
+      background: none;
+      outline: none;
+      font-size: 14px;
+      font-family: 'Inter', sans-serif;
+      color: var(--text);
+      width: 100%;
+    }
+    .header-search input::placeholder { color: var(--text-secondary); }
+    .header-actions { display: flex; align-items: center; gap: 12px; }
+    .header-icon-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      background: var(--card);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--text-secondary);
+      position: relative;
+      transition: all 0.15s;
+    }
+    .header-icon-btn:hover { border-color: var(--primary); color: var(--primary); }
+    .notif-dot {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      width: 7px;
+      height: 7px;
+      background: var(--danger);
+      border-radius: 50%;
+      border: 1.5px solid var(--card);
+    }
+    .header-period {
+      font-size: 13px;
+      color: var(--text-secondary);
+      background: var(--bg);
+      padding: 6px 12px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .period-dot {
+      width: 7px;
+      height: 7px;
+      background: var(--success);
+      border-radius: 50%;
+    }
+
+    /* ── Page content ── */
+    .page-content { padding: 28px 32px; flex: 1; }
+
+    .page-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 24px;
+    }
+    .page-title {
+      font-family: 'Manrope', sans-serif;
+      font-weight: 800;
+      font-size: 26px;
+      color: var(--text);
+      line-height: 1.2;
+    }
+    .page-date {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-top: 4px;
+    }
+    .page-tabs {
+      display: flex;
+      gap: 4px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      padding: 4px;
+      border-radius: var(--radius-sm);
+    }
+    .tab-btn {
+      padding: 7px 16px;
+      font-size: 13px;
+      font-weight: 500;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      background: none;
+      color: var(--text-secondary);
+      font-family: 'Inter', sans-serif;
+      transition: all 0.15s;
+    }
+    .tab-btn.active {
+      background: var(--card);
+      color: var(--text);
+      font-weight: 600;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    }
+
+    /* ── Stats Grid ── */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .stat-card {
+      background: var(--card);
+      border-radius: var(--radius-card);
+      padding: 20px;
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+    }
+    .stat-card.dark {
+      background: linear-gradient(135deg, #002060 0%, var(--primary) 60%, var(--primary-light) 100%);
+      color: #fff;
+    }
+    .stat-card-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .stat-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+    }
+    .stat-card.dark .stat-label { color: rgba(255,255,255,0.65); }
+    .stat-badge {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 6px;
+      background: var(--success-bg);
+      color: var(--success);
+    }
+    .stat-badge.neutral {
+      background: #f3f4f6;
+      color: var(--text-secondary);
+    }
+    .stat-badge.negative {
+      background: #fef2f2;
+      color: var(--danger);
+    }
+    .stat-card.dark .stat-badge {
+      background: rgba(255,255,255,0.15);
+      color: rgba(255,255,255,0.9);
+    }
+    .stat-value {
+      font-family: 'Manrope', sans-serif;
+      font-weight: 800;
+      font-size: 28px;
+      color: var(--text);
+      line-height: 1;
+      margin-bottom: 14px;
+    }
+    .stat-card.dark .stat-value { color: #fff; }
+    .stat-info-row {
+      font-size: 12px;
+      color: rgba(255,255,255,0.7);
+      margin-bottom: 14px;
+    }
+    .stat-sparkline {
+      display: flex;
+      align-items: flex-end;
+      gap: 3px;
+      height: 36px;
+      margin-top: auto;
+    }
+    .spark-bar {
+      flex: 1;
+      border-radius: 3px 3px 0 0;
+      min-height: 3px;
+      transition: opacity 0.2s;
+    }
+    .spark-bar:hover { opacity: 0.8; }
+    .stat-icon {
+      width: 36px;
+      height: 36px;
+      background: rgba(255,255,255,0.15);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* ── Middle row ── */
+    .middle-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    /* Neighborhoods card */
+    .card {
+      background: var(--card);
+      border-radius: var(--radius-card);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .card-header {
+      padding: 20px 20px 0;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+    }
+    .card-title {
+      font-family: 'Manrope', sans-serif;
+      font-weight: 700;
+      font-size: 16px;
+      color: var(--text);
+    }
+    .card-subtitle {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+    .card-link {
+      font-size: 12px;
+      color: var(--primary);
+      text-decoration: none;
+      font-weight: 600;
+      white-space: nowrap;
+      margin-left: 12px;
+    }
+    .card-link:hover { text-decoration: underline; }
+
+    .neighborhoods-body {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+      padding: 16px 20px 20px;
+    }
+    #map {
+      height: 260px;
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+    }
+    .neighborhoods-list {
+      padding-left: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .neighborhood-item {}
+    .neighborhood-item-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 4px;
+    }
+    .neighborhood-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .neighborhood-spots {
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+    .neighborhood-rev {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .neighborhood-bar-track {
+      height: 5px;
+      background: #e5e7eb;
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .neighborhood-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--success), #22c55e);
+      border-radius: 3px;
+    }
+
+    /* Earnings chart card */
+    .earnings-card { display: flex; flex-direction: column; }
+    .earnings-body { padding: 16px 20px 20px; flex: 1; }
+    .chart-wrap { position: relative; height: 220px; }
+    .peak-day-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 12px;
+      padding: 10px 12px;
+      background: var(--bg);
+      border-radius: var(--radius-sm);
+    }
+    .peak-day-icon {
+      width: 28px;
+      height: 28px;
+      background: linear-gradient(135deg, var(--primary), var(--primary-light));
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .peak-day-label {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+    .peak-day-value {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .peak-day-amount {
+      margin-left: auto;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--primary);
+    }
+
+    /* ── Transactions table ── */
+    .transactions-card {
+      background: var(--card);
+      border-radius: var(--radius-card);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .transactions-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 24px 16px;
+    }
+    .transactions-actions { display: flex; gap: 8px; }
+    .btn-secondary {
+      padding: 8px 14px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--card);
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s;
+    }
+    .btn-secondary:hover { border-color: var(--primary); color: var(--primary); }
+    .btn-primary {
+      padding: 8px 14px;
+      background: linear-gradient(135deg, var(--primary), var(--primary-light));
+      border: none;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 600;
+      color: #fff;
+      font-family: 'Inter', sans-serif;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: opacity 0.15s;
+    }
+    .btn-primary:hover { opacity: 0.9; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    thead th {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+      padding: 10px 24px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      background: #fafafa;
+    }
+    thead th.fee-col { color: var(--primary); }
+    tbody tr {
+      border-bottom: 1px solid #f3f4f6;
+      transition: background 0.12s;
+    }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: #fafafa; }
+    tbody tr.clickable { cursor: pointer; }
+    tbody tr.clickable:hover { background: #eff6ff; }
+
+    /* ── Detail Modal ── */
+    #detail-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.45);
+      backdrop-filter: blur(3px);
+      z-index: 2000;
+      align-items: center;
+      justify-content: center;
+    }
+    #detail-overlay.visible { display: flex; }
+    .detail-modal {
+      background: var(--card);
+      border-radius: 16px;
+      width: 100%;
+      max-width: 580px;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.2);
+    }
+    .detail-modal-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      padding: 22px 24px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .detail-modal-title {
+      font-family: 'Manrope', sans-serif;
+      font-weight: 700;
+      font-size: 17px;
+    }
+    .detail-modal-subtitle {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+    .detail-modal-close {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--text-secondary);
+      padding: 2px;
+      border-radius: 6px;
+      line-height: 1;
+    }
+    .detail-modal-close:hover { background: var(--bg); color: var(--text); }
+    .detail-modal-body { padding: 20px 24px; }
+    #detail-map {
+      height: 220px;
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+      margin-bottom: 18px;
+      border: 1px solid var(--border);
+    }
+    .detail-photo {
+      width: 100%;
+      max-height: 180px;
+      object-fit: cover;
+      border-radius: var(--radius-sm);
+      margin-bottom: 16px;
+      border: 1px solid var(--border);
+    }
+    .detail-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .detail-field { display: flex; flex-direction: column; gap: 2px; }
+    .detail-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .6px;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+    }
+    .detail-value {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      word-break: break-all;
+    }
+    tbody td {
+      padding: 13px 24px;
+      font-size: 13.5px;
+      color: var(--text);
+    }
+    .td-date { color: var(--text-secondary); font-size: 12.5px; }
+    .td-spot {
+      font-family: 'Inter', monospace;
+      font-size: 12px;
+      font-weight: 600;
+      background: var(--bg);
+      padding: 3px 8px;
+      border-radius: 5px;
+      display: inline-block;
+    }
+    .td-amount { font-weight: 700; }
+    .td-fee { color: var(--primary); font-weight: 700; }
+    .table-footer {
+      padding: 16px;
+      text-align: center;
+    }
+    .view-all-link {
+      font-size: 13px;
+      color: var(--primary);
+      text-decoration: none;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .view-all-link:hover { text-decoration: underline; }
+
+    /* ── Loading skeleton ── */
+    .skeleton {
+      background: linear-gradient(90deg, #f0f0f0 25%, #e8e8e8 50%, #f0f0f0 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.4s infinite;
+      border-radius: 6px;
+    }
+    @keyframes shimmer {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+
+    /* ── Leaflet override ── */
+    .leaflet-container { font-family: 'Inter', sans-serif; }
+  </style>
+</head>
+<body>
+
+<!-- Login Modal -->
+<div id="login-overlay" class="visible">
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="login-logo-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+          <polyline points="9 22 9 12 15 12 15 22"/>
+        </svg>
+      </div>
+      <span class="login-logo-text">ParkPass</span>
+    </div>
+    <div class="login-title">Admin Dashboard</div>
+    <div class="login-subtitle">Sign in with your admin account to continue</div>
+    <form id="login-form">
+      <div class="form-group">
+        <label>Email address</label>
+        <input type="email" id="login-email" placeholder="admin@parkpass.app" required autocomplete="email" />
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" id="login-password" placeholder="••••••••" required autocomplete="current-password" />
+      </div>
+      <button type="submit" class="login-btn" id="login-submit-btn">Sign in to Dashboard</button>
+    </form>
+    <div class="login-error" id="login-error"></div>
+  </div>
+</div>
+
+<!-- Dashboard -->
+<div id="dashboard">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="sidebar-logo-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="18" height="18" rx="2"/>
+          <path d="M9 17V7h4a3 3 0 0 1 0 6H9"/>
+        </svg>
+      </div>
+      <span class="sidebar-logo-text">ParkPass</span>
+      <span class="sidebar-logo-badge">ADMIN</span>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">Main</div>
+      <a class="nav-item active" href="#" data-tab="revenue">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+          <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+        </svg>
+        Dashboard
+      </a>
+      <a class="nav-item" href="#" data-tab="users">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+          <circle cx="9" cy="7" r="4"/>
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+          <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+        </svg>
+        Users
+      </a>
+      <a class="nav-item" href="#" data-tab="transactions">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <path d="M12 8v4l3 3"/>
+        </svg>
+        Reservations
+        <span class="nav-badge" id="sidebar-tx-badge">0</span>
+      </a>
+      <a class="nav-item" href="#" data-tab="spots">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+          <circle cx="12" cy="10" r="3"/>
+        </svg>
+        Spots
+        <span class="nav-badge" id="sidebar-spots-badge">0</span>
+      </a>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">Finance</div>
+      <a class="nav-item" href="#" data-tab="transactions">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+        </svg>
+        Revenue
+      </a>
+      <a class="nav-item" href="#" data-tab="revenue">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+        </svg>
+        Analytics
+      </a>
+    </div>
+
+    <div class="sidebar-footer">
+      <button class="generate-btn" onclick="downloadData()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="7 10 12 15 17 10"/>
+          <line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+        Download Data
+      </button>
+      <div class="admin-user">
+        <div class="admin-avatar" id="admin-avatar">A</div>
+        <div class="admin-info">
+          <div class="admin-name" id="admin-name">Admin User</div>
+          <div class="admin-role">Administrator</div>
+        </div>
+        <button class="logout-btn" onclick="logout()" title="Sign out">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+            <polyline points="16 17 21 12 16 7"/>
+            <line x1="21" y1="12" x2="9" y2="12"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main area -->
+  <div class="main">
+
+    <!-- Header bar -->
+    <div class="header-bar">
+      <div class="header-search" style="position:relative;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <input type="text" id="search-input" placeholder="Search users, spots, reservations…" autocomplete="off" />
+        <div id="search-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,0.12);z-index:200;margin-top:6px;max-height:360px;overflow-y:auto;"></div>
+      </div>
+      <div class="header-actions">
+        <div class="header-period">
+          <span class="period-dot"></span>
+          <span id="header-period-label">Loading…</span>
+        </div>
+        <div class="header-icon-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+          </svg>
+          <span class="notif-dot"></span>
+        </div>
+        <div class="header-icon-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.07 4.93a10 10 0 0 1 1.41 1.41"/>
+            <path d="M2.93 19.07a10 10 0 0 1-1.41-1.41"/>
+            <path d="M4.93 4.93a10 10 0 0 0-1.41 1.41"/>
+            <path d="M21.07 19.07a10 10 0 0 0 1.41-1.41"/>
+            <circle cx="12" cy="12" r="10"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <!-- Page content -->
+    <div class="page-content">
+
+      <!-- Page header -->
+      <div class="page-header">
+        <div>
+          <div class="page-title">Overview Dashboard</div>
+          <div class="page-date" id="page-date"></div>
+        </div>
+        <div class="page-tabs">
+          <button class="tab-btn active" data-tab="revenue">Revenue</button>
+          <button class="tab-btn" data-tab="transactions">Transactions</button>
+          <button class="tab-btn" data-tab="spots">Spots</button>
+          <button class="tab-btn" data-tab="users">Users</button>
+        </div>
+      </div>
+
+      <!-- ── TAB VIEWS ─────────────────────────────────────────────── -->
+      <div id="tab-revenue">
+
+      <!-- Stats grid -->
+      <div class="stats-grid">
+
+        <!-- Total Revenue -->
+        <div class="stat-card">
+          <div class="stat-card-top">
+            <div class="stat-label">Total Revenue</div>
+            <div class="stat-badge" id="revenue-badge">—</div>
+          </div>
+          <div class="stat-value" id="stat-revenue">$—</div>
+          <div class="stat-sparkline" id="sparkline-revenue"></div>
+        </div>
+
+        <!-- Transactions -->
+        <div class="stat-card">
+          <div class="stat-card-top">
+            <div class="stat-label">Transactions</div>
+            <div class="stat-badge" id="tx-badge">—</div>
+          </div>
+          <div class="stat-value" id="stat-tx">—</div>
+          <div class="stat-sparkline" id="sparkline-tx"></div>
+        </div>
+
+        <!-- Active Spots -->
+        <div class="stat-card">
+          <div class="stat-card-top">
+            <div class="stat-label">Active Spots</div>
+            <div class="stat-badge neutral">Live</div>
+          </div>
+          <div class="stat-value" id="stat-spots">—</div>
+          <div class="stat-sparkline" id="sparkline-spots">
+            <!-- static decoration bars -->
+          </div>
+        </div>
+
+        <!-- Platform Fees - dark card -->
+        <div class="stat-card dark">
+          <div class="stat-card-top">
+            <div class="stat-label">Platform Fees</div>
+            <div class="stat-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="1" x2="12" y2="23"/>
+                <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+              </svg>
+            </div>
+          </div>
+          <div class="stat-value" id="stat-fees">$—</div>
+          <div class="stat-info-row" id="stat-fees-period">This period: $—</div>
+          <div class="stat-sparkline" id="sparkline-fees"></div>
+        </div>
+
+      </div>
+
+      <!-- Middle row: Neighborhoods + Earnings -->
+      <div class="middle-row">
+
+        <!-- Neighborhoods card -->
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Top Neighborhoods</div>
+              <div class="card-subtitle">Revenue by area · last 30 days</div>
+            </div>
+            <a href="#" class="card-link" id="heatmap-toggle-btn">View Heatmap →</a>
+          </div>
+          <div class="neighborhoods-body">
+            <div id="map"></div>
+            <div class="neighborhoods-list" id="neighborhoods-list">
+              <div style="color:var(--text-secondary);font-size:13px;padding-top:8px;">Loading…</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Earnings chart card -->
+        <div class="card earnings-card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Platform Earnings</div>
+              <div class="card-subtitle">Daily fee revenue · last 30 days</div>
+            </div>
+          </div>
+          <div class="earnings-body">
+            <div class="chart-wrap">
+              <canvas id="earnings-chart"></canvas>
+            </div>
+            <div class="peak-day-row">
+              <div class="peak-day-icon">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                </svg>
+              </div>
+              <div>
+                <div class="peak-day-label">Peak Day</div>
+                <div class="peak-day-value" id="peak-day-name">—</div>
+              </div>
+              <div class="peak-day-amount" id="peak-day-amount">$—</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Transactions table -->
+      <div class="transactions-card">
+        <div class="transactions-header">
+          <div>
+            <div class="card-title">Recent Transactions</div>
+            <div class="card-subtitle" id="tx-subtitle">Last 10 completed transactions</div>
+          </div>
+          <div class="transactions-actions">
+            <button class="btn-secondary" onclick="filterTransactions()">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+              </svg>
+              Filter
+            </button>
+            <button class="btn-primary" onclick="exportCSV()">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+              Export CSV
+            </button>
+          </div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Spot ID</th>
+              <th>Leaver</th>
+              <th>Driver</th>
+              <th>Amount</th>
+              <th class="fee-col" id="fee-col-header">Platform Fee (15%)</th>
+            </tr>
+          </thead>
+          <tbody id="tx-table-body">
+            <tr><td colspan="6" style="padding:28px;text-align:center;color:var(--text-secondary);">Loading transactions…</td></tr>
+          </tbody>
+        </table>
+
+        <!-- Filter panel (hidden by default) -->
+        <div id="filter-panel" style="display:none;padding:16px 20px;border-top:1px solid #f3f4f6;background:#fafafa;border-radius:0 0 12px 12px;">
+          <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+            <div>
+              <div style="font-size:11px;font-weight:700;color:#9ca3af;letter-spacing:.6px;margin-bottom:4px;">FROM</div>
+              <input type="date" id="filter-date-from" style="padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;font-family:Inter,sans-serif;outline:none;" />
+            </div>
+            <div>
+              <div style="font-size:11px;font-weight:700;color:#9ca3af;letter-spacing:.6px;margin-bottom:4px;">TO</div>
+              <input type="date" id="filter-date-to" style="padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;font-family:Inter,sans-serif;outline:none;" />
+            </div>
+            <div>
+              <div style="font-size:11px;font-weight:700;color:#9ca3af;letter-spacing:.6px;margin-bottom:4px;">STATUS</div>
+              <select id="filter-status" style="padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;font-family:Inter,sans-serif;outline:none;background:#fff;">
+                <option value="">All Statuses</option>
+                <option value="COMPLETED">Completed</option>
+                <option value="ACTIVE">Active</option>
+                <option value="CANCELLED">Cancelled</option>
+                <option value="REFUNDED">Refunded</option>
+              </select>
+            </div>
+            <button onclick="applyFilter()" style="padding:8px 16px;background:#003d9b;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">Apply</button>
+            <button onclick="clearFilter()" style="padding:8px 16px;background:#f3f4f6;color:#374151;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">Clear</button>
+          </div>
+        </div>
+
+        <div class="table-footer" style="display:flex;justify-content:space-between;align-items:center;">
+          <span id="tx-pager-info" style="font-size:12px;color:#9ca3af;"></span>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <button id="tx-prev" onclick="txPageChange(-1)" style="padding:4px 10px;border:1px solid #e5e7eb;border-radius:6px;background:#fff;font-size:12px;cursor:pointer;">‹ Prev</button>
+            <button id="tx-next" onclick="txPageChange(1)" style="padding:4px 10px;border:1px solid #e5e7eb;border-radius:6px;background:#fff;font-size:12px;cursor:pointer;">Next ›</button>
+            <a href="#" class="view-all-link" onclick="switchTab('transactions');return false;">
+              View All
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      </div><!-- end tab-revenue -->
+
+      <!-- ── Transactions Tab ───────────────────────────────────────── -->
+      <div id="tab-transactions" style="display:none;">
+        <div class="transactions-card">
+          <div class="transactions-header">
+            <div>
+              <div class="card-title">All Transactions</div>
+              <div class="card-subtitle" id="all-tx-subtitle">Loading…</div>
+            </div>
+            <div class="transactions-actions">
+              <input type="date" id="atx-date-from" style="padding:7px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;font-family:Inter,sans-serif;" placeholder="From" />
+              <input type="date" id="atx-date-to" style="padding:7px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;font-family:Inter,sans-serif;" placeholder="To" />
+              <select id="atx-status" style="padding:7px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;font-family:Inter,sans-serif;background:#fff;" onchange="loadAllTx(1)">
+                <option value="">All Statuses</option>
+                <option value="COMPLETED">Completed</option>
+                <option value="ACTIVE">Active</option>
+                <option value="CANCELLED">Cancelled</option>
+                <option value="REFUNDED">Refunded</option>
+              </select>
+              <button onclick="loadAllTx(1)" style="padding:7px 14px;background:#003d9b;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">Apply</button>
+              <button class="btn-primary" onclick="exportAllTxCSV()">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Export CSV
+              </button>
+            </div>
+          </div>
+          <table>
+            <thead><tr>
+              <th>Date</th><th>Spot ID</th><th>Address</th><th>Leaver</th><th>Driver</th><th>Amount</th><th class="fee-col">Status</th><th class="fee-col">Platform Fee</th>
+            </tr></thead>
+            <tbody id="all-tx-body"><tr><td colspan="8" style="padding:28px;text-align:center;color:#9ca3af;">Loading…</td></tr></tbody>
+          </table>
+          <div class="table-footer" style="display:flex;justify-content:space-between;align-items:center;">
+            <span id="all-tx-pager-info" style="font-size:12px;color:#9ca3af;"></span>
+            <div style="display:flex;gap:8px;">
+              <button id="atx-prev" onclick="atxPageChange(-1)" style="padding:4px 10px;border:1px solid #e5e7eb;border-radius:6px;background:#fff;font-size:12px;cursor:pointer;">‹ Prev</button>
+              <button id="atx-next" onclick="atxPageChange(1)" style="padding:4px 10px;border:1px solid #e5e7eb;border-radius:6px;background:#fff;font-size:12px;cursor:pointer;">Next ›</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Spots Tab ──────────────────────────────────────────────── -->
+      <div id="tab-spots" style="display:none;">
+        <div class="transactions-card">
+          <div class="transactions-header">
+            <div>
+              <div class="card-title">All Spots</div>
+              <div class="card-subtitle" id="spots-subtitle">Loading…</div>
+            </div>
+            <div class="transactions-actions">
+              <input type="text" id="spots-search" placeholder="Search address…" style="padding:7px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;font-family:Inter,sans-serif;width:180px;" onkeydown="if(event.key==='Enter')loadSpots(1)" />
+              <select id="spots-status" style="padding:7px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;font-family:Inter,sans-serif;background:#fff;" onchange="loadSpots(1)">
+                <option value="">All Statuses</option>
+                <option value="AVAILABLE">Available</option>
+                <option value="RESERVED">Reserved</option>
+                <option value="COMPLETED">Completed</option>
+                <option value="CANCELLED">Cancelled</option>
+                <option value="EXPIRED">Expired</option>
+              </select>
+              <button onclick="loadSpots(1)" style="padding:7px 14px;background:#003d9b;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">Search</button>
+            </div>
+          </div>
+          <table>
+            <thead><tr>
+              <th>Spot ID</th><th>Address</th><th>Status</th><th>Price</th><th>Leaver</th><th>Leaving In</th><th>Listed At</th>
+            </tr></thead>
+            <tbody id="spots-body"><tr><td colspan="7" style="padding:28px;text-align:center;color:#9ca3af;">Loading…</td></tr></tbody>
+          </table>
+          <div class="table-footer" style="display:flex;justify-content:space-between;align-items:center;">
+            <span id="spots-pager-info" style="font-size:12px;color:#9ca3af;"></span>
+            <div style="display:flex;gap:8px;">
+              <button id="spots-prev" onclick="spotsPageChange(-1)" style="padding:4px 10px;border:1px solid #e5e7eb;border-radius:6px;background:#fff;font-size:12px;cursor:pointer;">‹ Prev</button>
+              <button id="spots-next" onclick="spotsPageChange(1)" style="padding:4px 10px;border:1px solid #e5e7eb;border-radius:6px;background:#fff;font-size:12px;cursor:pointer;">Next ›</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Users Tab ──────────────────────────────────────────────── -->
+      <div id="tab-users" style="display:none;">
+        <div class="transactions-card">
+          <div class="transactions-header">
+            <div>
+              <div class="card-title">All Users</div>
+              <div class="card-subtitle" id="users-subtitle">Loading…</div>
+            </div>
+            <div class="transactions-actions">
+              <input type="text" id="users-search" placeholder="Search name or email…" style="padding:7px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;font-family:Inter,sans-serif;width:220px;" onkeydown="if(event.key==='Enter')loadUsers(1)" />
+              <button onclick="loadUsers(1)" style="padding:7px 14px;background:#003d9b;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">Search</button>
+            </div>
+          </div>
+          <table>
+            <thead><tr>
+              <th>Name</th><th>Email</th><th>Rating</th><th>Tokens</th><th>Reservations</th><th>Listings</th><th>Joined</th><th>Role</th>
+            </tr></thead>
+            <tbody id="users-body"><tr><td colspan="8" style="padding:28px;text-align:center;color:#9ca3af;">Loading…</td></tr></tbody>
+          </table>
+          <div class="table-footer" style="display:flex;justify-content:space-between;align-items:center;">
+            <span id="users-pager-info" style="font-size:12px;color:#9ca3af;"></span>
+            <div style="display:flex;gap:8px;">
+              <button id="users-prev" onclick="usersPageChange(-1)" style="padding:4px 10px;border:1px solid #e5e7eb;border-radius:6px;background:#fff;font-size:12px;cursor:pointer;">‹ Prev</button>
+              <button id="users-next" onclick="usersPageChange(1)" style="padding:4px 10px;border:1px solid #e5e7eb;border-radius:6px;background:#fff;font-size:12px;cursor:pointer;">Next ›</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- end page-content -->
+  </div><!-- end main -->
+</div><!-- end dashboard -->
+
+<!-- ── Detail Modal ─────────────────────────────────────────────────── -->
+<div id="detail-overlay" onclick="if(event.target===this)closeDetailModal()">
+  <div class="detail-modal">
+    <div class="detail-modal-header">
+      <div>
+        <div class="detail-modal-title" id="detail-modal-title">Details</div>
+        <div class="detail-modal-subtitle" id="detail-modal-subtitle"></div>
+      </div>
+      <button class="detail-modal-close" onclick="closeDetailModal()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="detail-modal-body">
+      <div id="detail-map"></div>
+      <img id="detail-photo" class="detail-photo" style="display:none;" />
+      <div class="detail-grid" id="detail-grid"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ── State ──────────────────────────────────────────────────────────────
+  let statsData = null;
+  let earningsChart = null;
+  let leafletMap = null;
+  let currentTab = 'revenue';
+  let heatLayer = null;
+  let heatmapMode = false;
+  let detailMap = null;
+
+  // Pagination state
+  const txState = { page: 1, pages: 1, total: 0 };
+  const atxState = { page: 1, pages: 1, total: 0 };
+  const spotsState = { page: 1, pages: 1, total: 0 };
+  const usersState = { page: 1, pages: 1, total: 0 };
+  let allTxData = [];
+
+  // ── Utilities ──────────────────────────────────────────────────────────
+  const $ = id => document.getElementById(id);
+
+  function fmt$(n) {
+    if (n === null || n === undefined) return '$—';
+    if (n >= 1000) return '$' + (n / 1000).toFixed(1) + 'k';
+    return '$' + n.toFixed(2);
+  }
+
+  function fmtChange(pct) {
+    if (!pct && pct !== 0) return { text: '—', cls: 'neutral' };
+    if (pct === 0) return { text: 'Steady', cls: 'neutral' };
+    const sign = pct > 0 ? '+' : '';
+    return { text: sign + pct + '%', cls: pct > 0 ? '' : 'negative' };
+  }
+
+  // ── Auth ───────────────────────────────────────────────────────────────
+  function getToken() { return localStorage.getItem('admin_token'); }
+  function setToken(t) { localStorage.setItem('admin_token', t); }
+  function clearToken() { localStorage.removeItem('admin_token'); localStorage.removeItem('admin_user_name'); }
+
+  function logout() {
+    clearToken();
+    location.reload();
+  }
+
+  // ── Init ───────────────────────────────────────────────────────────────
+  (function init() {
+    const token = getToken();
+    if (!token) {
+      showLogin();
+    } else {
+      showDashboard();
+      fetchStats(token);
+    }
+
+    // Set date
+    const now = new Date();
+    $('page-date').textContent = now.toLocaleDateString('en-US', {
+      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+    });
+  })();
+
+  function showLogin() {
+    $('login-overlay').classList.add('visible');
+    $('dashboard').classList.remove('visible');
+    initMap(null);
+  }
+
+  function showDashboard() {
+    $('login-overlay').classList.remove('visible');
+    $('dashboard').classList.add('visible');
+    // Restore admin name
+    const name = localStorage.getItem('admin_user_name') || 'Admin';
+    $('admin-name').textContent = name;
+    $('admin-avatar').textContent = name[0].toUpperCase();
+    initMap(null); // init map with default center until data loads
+  }
+
+  // ── Login form ─────────────────────────────────────────────────────────
+  $('login-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const btn = $('login-submit-btn');
+    const errEl = $('login-error');
+    errEl.classList.remove('visible');
+    btn.textContent = 'Signing in…';
+    btn.disabled = true;
+
+    const email = $('login-email').value.trim();
+    const password = $('login-password').value;
+
+    try {
+      const resp = await fetch('/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await resp.json();
+
+      if (!resp.ok) {
+        throw new Error(data.detail || 'Login failed');
+      }
+
+      // data may be {access_token:...} or {success:true, data:{access_token:...}}
+      const token = data.access_token || (data.data && data.data.access_token);
+      if (!token) throw new Error('No token in response');
+
+      setToken(token);
+
+      // store full name from response, fall back to email prefix
+      const fullName = (data.data && data.data.user && data.data.user.full_name) || email.split('@')[0];
+      localStorage.setItem('admin_user_name', fullName);
+
+      showDashboard();
+      fetchStats(token);
+
+    } catch (err) {
+      errEl.textContent = err.message;
+      errEl.classList.add('visible');
+    } finally {
+      btn.textContent = 'Sign in to Dashboard';
+      btn.disabled = false;
+    }
+  });
+
+  // ── Fetch stats ────────────────────────────────────────────────────────
+  async function fetchStats(token) {
+    try {
+      const resp = await fetch('/admin/stats', {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+
+      if (resp.status === 401) {
+        clearToken();
+        showLogin();
+        return;
+      }
+      if (resp.status === 403) {
+        clearToken();
+        const errEl = $('login-error');
+        errEl.textContent = 'Not an admin account. Contact your administrator.';
+        errEl.classList.add('visible');
+        showLogin();
+        return;
+      }
+      if (!resp.ok) throw new Error('Server error ' + resp.status);
+
+      const body = await resp.json();
+      statsData = body.data || body;
+      renderAll(statsData);
+
+    } catch (err) {
+      console.error('fetchStats error:', err);
+    }
+  }
+
+  // ── Render everything ──────────────────────────────────────────────────
+  function renderAll(d) {
+    renderStatCards(d);
+    renderNeighborhoods(d.neighborhoods || []);
+    renderEarningsChart(d.earnings_daily || [], d.earnings_labels || []);
+    renderPeakDay(d);
+    updateSidebar(d);
+    updateHeader(d);
+    updateFeeColHeader(d.fee_pct);
+    // Load the recent transactions table via the paginated endpoint
+    loadRecentTx();
+  }
+
+  function updateHeader(d) {
+    $('header-period-label').textContent = d.period_label || '';
+  }
+
+  function updateSidebar(d) {
+    $('sidebar-tx-badge').textContent = d.total_transactions || 0;
+    $('sidebar-spots-badge').textContent = d.active_spots || 0;
+  }
+
+  function updateFeeColHeader(pct) {
+    $('fee-col-header').textContent = 'Platform Fee (' + (pct || 15) + '%)';
+  }
+
+  // ── Stat cards ─────────────────────────────────────────────────────────
+  function renderStatCards(d) {
+    // Revenue
+    $('stat-revenue').textContent = fmt$(d.total_revenue);
+    const revChange = fmtChange(d.revenue_change_pct);
+    const revBadge = $('revenue-badge');
+    revBadge.textContent = revChange.text;
+    revBadge.className = 'stat-badge ' + revChange.cls;
+    renderSparkline('sparkline-revenue', d.revenue_daily || [], ['#bcd4f7','#93b8f0','#6b9de8','#4383e0','#1c68d8','#0a52be','#003d9b']);
+
+    // Transactions
+    $('stat-tx').textContent = (d.total_transactions || 0).toLocaleString();
+    const txChange = fmtChange(d.transactions_change_pct);
+    const txBadge = $('tx-badge');
+    txBadge.textContent = txChange.text;
+    txBadge.className = 'stat-badge ' + txChange.cls;
+    renderSparkline('sparkline-tx', d.transactions_daily || [], ['#bcd4f7','#93b8f0','#6b9de8','#4383e0','#1c68d8','#0a52be','#003d9b']);
+
+    // Active spots
+    $('stat-spots').textContent = (d.active_spots || 0).toLocaleString();
+    renderSparkline('sparkline-spots', d.spots_daily || [], ['#bbf7d0','#86efac','#4ade80','#22c55e','#16a34a','#15803d','#166534']);
+
+    // Platform fees (dark card)
+    $('stat-fees').textContent = fmt$(d.platform_fees_total);
+    $('stat-fees-period').textContent = 'This period: ' + fmt$(d.platform_fees_current);
+    renderSparkline('sparkline-fees', d.revenue_daily || [], ['rgba(255,255,255,0.2)','rgba(255,255,255,0.3)','rgba(255,255,255,0.4)','rgba(255,255,255,0.5)','rgba(255,255,255,0.6)','rgba(255,255,255,0.75)','rgba(255,255,255,0.9)']);
+  }
+
+  function renderSparkline(containerId, values, colors) {
+    const el = $(containerId);
+    if (!el) return;
+    el.innerHTML = '';
+    if (!values || values.length === 0) return;
+    const max = Math.max(...values, 1);
+    values.forEach((v, i) => {
+      const bar = document.createElement('div');
+      bar.className = 'spark-bar';
+      const pct = Math.max(Math.round((v / max) * 100), 4);
+      bar.style.height = pct + '%';
+      bar.style.background = colors[i] || colors[colors.length - 1];
+      bar.title = v.toLocaleString();
+      el.appendChild(bar);
+    });
+  }
+
+  // ── Neighborhoods ──────────────────────────────────────────────────────
+  function renderNeighborhoods(hoods) {
+    const list = $('neighborhoods-list');
+    if (!hoods.length) {
+      list.innerHTML = '<div style="color:var(--text-secondary);font-size:13px;padding-top:8px;">No spots yet</div>';
+      return;
+    }
+
+    const maxRev = Math.max(...hoods.map(h => h.revenue), 1);
+    list.innerHTML = hoods.map(h => {
+      const pct = Math.max(8, Math.round((h.revenue / maxRev) * 100));
+      const rev = h.revenue >= 1000 ? '$' + (h.revenue/1000).toFixed(1)+'k' : h.revenue > 0 ? '$'+h.revenue.toFixed(0) : 'No revenue yet';
+      const displayName = h.address || h.name;
+      return `
+        <div class="neighborhood-item">
+          <div class="neighborhood-item-top">
+            <div>
+              <div class="neighborhood-name">${escHtml(displayName)}</div>
+              <div class="neighborhood-spots">${h.total_transactions || 0} transaction${(h.total_transactions || 0) !== 1 ? 's' : ''} · ${h.active_spots} active</div>
+            </div>
+            <div class="neighborhood-rev">${rev}</div>
+          </div>
+          <div class="neighborhood-bar-track">
+            <div class="neighborhood-bar-fill" style="width:${pct}%"></div>
+          </div>
+        </div>`;
+    }).join('');
+
+    updateMapMarkers(hoods);
+  }
+
+  // ── Leaflet map ────────────────────────────────────────────────────────
+  function initMap(center) {
+    if (leafletMap) return; // already initialized
+    const c = center || [40.7128, -74.0060]; // default NYC
+    leafletMap = L.map('map', { zoomControl: true, scrollWheelZoom: false }).setView(c, 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      maxZoom: 19
+    }).addTo(leafletMap);
+  }
+
+  const mapMarkers = [];
+
+  function updateMapMarkers(hoods) {
+    if (!leafletMap) {
+      initMap(null);
+    }
+    // Clear old markers
+    mapMarkers.forEach(m => m.remove());
+    mapMarkers.length = 0;
+
+    const validHoods = hoods.filter(h => h.lat != null && h.lng != null);
+    if (!validHoods.length) return;
+
+    const bounds = [];
+    validHoods.forEach((h, i) => {
+      const rev = h.revenue >= 1000 ? '$' + (h.revenue/1000).toFixed(1)+'k' : '$'+h.revenue.toFixed(0);
+      const marker = L.circleMarker([h.lat, h.lng], {
+        radius: 10 + Math.min(i === 0 ? 8 : 4, 12),
+        fillColor: '#16a34a',
+        color: '#fff',
+        weight: 2,
+        opacity: 1,
+        fillOpacity: 0.85
+      }).bindPopup(`<strong>${h.address || h.name}</strong><br>${h.total_transactions || 0} total transaction${(h.total_transactions || 0) !== 1 ? 's' : ''} · ${h.active_spots} active<br>${h.revenue > 0 ? 'Revenue: ' + rev : 'No revenue yet'}`);
+      marker.addTo(leafletMap);
+      mapMarkers.push(marker);
+      bounds.push([h.lat, h.lng]);
+    });
+
+    if (bounds.length === 1) {
+      leafletMap.setView(bounds[0], 14);
+    } else if (bounds.length > 1) {
+      leafletMap.fitBounds(bounds, { padding: [20, 20] });
+    }
+  }
+
+  // ── Detail Modal ───────────────────────────────────────────────────────
+  const statusColors = { AVAILABLE:'#d1fae5', RESERVED:'#dbeafe', COMPLETED:'#e5e7eb', ACTIVE:'#dbeafe', CANCELLED:'#fee2e2', EXPIRED:'#fef3c7', REFUNDED:'#fef3c7', PENDING:'#f3f4f6' };
+  const statusText   = { AVAILABLE:'#065f46', RESERVED:'#1e3db8', COMPLETED:'#374151', ACTIVE:'#1e3db8', CANCELLED:'#991b1b', EXPIRED:'#92400e', REFUNDED:'#92400e', PENDING:'#374151' };
+
+  function statusBadge(s) {
+    return `<span style="background:${statusColors[s]||'#f3f4f6'};color:${statusText[s]||'#374151'};padding:3px 9px;border-radius:6px;font-size:11px;font-weight:700;">${s}</span>`;
+  }
+
+  function openDetailModal(title, subtitle, lat, lng, photo_url, fields) {
+    $('detail-modal-title').textContent = title;
+    $('detail-modal-subtitle').textContent = subtitle || '';
+
+    // Photo
+    const photoEl = $('detail-photo');
+    if (photo_url) {
+      photoEl.src = photo_url;
+      photoEl.style.display = 'block';
+    } else {
+      photoEl.style.display = 'none';
+    }
+
+    // Fields grid
+    $('detail-grid').innerHTML = fields.map(([label, value]) => `
+      <div class="detail-field">
+        <span class="detail-label">${escHtml(label)}</span>
+        <span class="detail-value">${value}</span>
+      </div>`).join('');
+
+    $('detail-overlay').classList.add('visible');
+
+    // Map — wait for overlay to be visible before initialising
+    setTimeout(() => {
+      if (detailMap) { detailMap.remove(); detailMap = null; }
+      const center = (lat && lng) ? [lat, lng] : [31.7683, 35.2137];
+      detailMap = L.map('detail-map', { zoomControl: true, scrollWheelZoom: false }).setView(center, 15);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+        maxZoom: 19
+      }).addTo(detailMap);
+      if (lat && lng) {
+        L.circleMarker([lat, lng], { radius: 10, fillColor: '#003d9b', color: '#fff', weight: 2, fillOpacity: 0.9 }).addTo(detailMap);
+      }
+      detailMap.invalidateSize();
+      if (lat && lng) detailMap.setView([lat, lng], 15);
+    }, 120);
+  }
+
+  function closeDetailModal() {
+    $('detail-overlay').classList.remove('visible');
+    if (detailMap) { detailMap.remove(); detailMap = null; }
+  }
+
+  function openSpotModal(s) {
+    openDetailModal(
+      s.address,
+      s.label,
+      s.lat, s.lng,
+      s.photo_url,
+      [
+        ['Spot ID', escHtml(s.label)],
+        ['Status', statusBadge(s.status)],
+        ['Price', '$' + s.price.toFixed(2)],
+        ['Leaver', escHtml(s.leaver_name)],
+        ['Leaver Email', escHtml(s.leaver_email || '—')],
+        ['Leaving In', s.leaving_in_minutes === 0 ? 'Now' : s.leaving_in_minutes + ' min'],
+        ['Listed At', escHtml(s.created_at)],
+        ['Coordinates', s.lat != null ? s.lat.toFixed(5) + ', ' + s.lng.toFixed(5) : '—'],
+      ]
+    );
+  }
+
+  function openReservationModal(tx) {
+    openDetailModal(
+      tx.spot_address,
+      'Reservation · ' + tx.spot_id,
+      tx.lat, tx.lng,
+      tx.photo_url,
+      [
+        ['Spot ID', escHtml(tx.spot_id)],
+        ['Status', statusBadge(tx.status)],
+        ['Driver', escHtml(tx.driver_name || tx.driver || '—')],
+        ['Driver Email', escHtml(tx.driver_email || '—')],
+        ['Leaver', escHtml(tx.leaver_name || tx.leaver || '—')],
+        ['Leaver Email', escHtml(tx.leaver_email || '—')],
+        ['Amount', '$' + (tx.amount || 0).toFixed(2)],
+        ['Platform Fee', '$' + (tx.platform_fee || 0).toFixed(2)],
+        ['Date', escHtml(tx.created_at || tx.date || '—')],
+        ['Coordinates', tx.lat != null ? tx.lat.toFixed(5) + ', ' + tx.lng.toFixed(5) : '—'],
+      ]
+    );
+  }
+
+  // ── Heatmap toggle ─────────────────────────────────────────────────────
+  async function loadHeatmap() {
+    const token = getToken();
+    try {
+      const resp = await fetch('/admin/heatmap', { headers: { Authorization: 'Bearer ' + token } });
+      const data = await resp.json();
+      return (data.data && data.data.points) ? data.data.points : [];
+    } catch (e) {
+      console.error('Heatmap fetch failed', e);
+      return [];
+    }
+  }
+
+  async function toggleHeatmap(e) {
+    e.preventDefault();
+    const btn = $('heatmap-toggle-btn');
+    if (!leafletMap) return;
+
+    if (!heatmapMode) {
+      // Switch to heatmap
+      btn.textContent = 'Loading…';
+      const points = await loadHeatmap();
+      if (!points.length) { btn.textContent = 'View Heatmap →'; return; }
+
+      // Hide circle markers
+      mapMarkers.forEach(m => m.setStyle({ opacity: 0, fillOpacity: 0 }));
+
+      const heatPoints = points.map(p => [p.lat, p.lng, p.weight]);
+      heatLayer = L.heatLayer(heatPoints, {
+        radius: 30,
+        blur: 20,
+        maxZoom: 17,
+        gradient: { 0.2: '#003d9b', 0.5: '#0052cc', 0.8: '#16a34a', 1.0: '#dc2626' }
+      }).addTo(leafletMap);
+
+      // Fit bounds to all heat points
+      if (points.length === 1) {
+        leafletMap.setView([points[0].lat, points[0].lng], 14);
+      } else if (points.length > 1) {
+        leafletMap.fitBounds(points.map(p => [p.lat, p.lng]), { padding: [20, 20] });
+      }
+
+      heatmapMode = true;
+      btn.textContent = 'View Markers →';
+    } else {
+      // Switch back to markers
+      if (heatLayer) { heatLayer.remove(); heatLayer = null; }
+      mapMarkers.forEach(m => m.setStyle({ opacity: 1, fillOpacity: 0.85 }));
+      heatmapMode = false;
+      btn.textContent = 'View Heatmap →';
+    }
+  }
+
+  // ── Earnings chart ─────────────────────────────────────────────────────
+  function renderEarningsChart(values, labels) {
+    const ctx = $('earnings-chart').getContext('2d');
+
+    // Show only every 5th label to avoid clutter on 30 days
+    const sparseLabels = labels.map((l, i) => (i % 5 === 0 ? l : ''));
+
+    if (earningsChart) {
+      earningsChart.data.labels = sparseLabels;
+      earningsChart.data.datasets[0].data = values;
+      earningsChart.update();
+      return;
+    }
+
+    earningsChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: sparseLabels,
+        datasets: [{
+          label: 'Platform Fees ($)',
+          data: values,
+          backgroundColor: values.map((v, i) => {
+            const alpha = 0.4 + (i / values.length) * 0.6;
+            return `rgba(0, 61, 155, ${alpha})`;
+          }),
+          borderRadius: 5,
+          borderSkipped: false,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: '#003d9b',
+            titleColor: 'rgba(255,255,255,0.7)',
+            bodyColor: '#fff',
+            padding: 10,
+            cornerRadius: 8,
+            callbacks: {
+              label: ctx => ' $' + ctx.parsed.y.toFixed(2)
+            }
+          }
+        },
+        scales: {
+          x: {
+            grid: { display: false },
+            border: { display: false },
+            ticks: {
+              color: '#9ca3af',
+              font: { family: 'Inter', size: 11 }
+            }
+          },
+          y: {
+            grid: { color: '#f3f4f6' },
+            border: { display: false, dash: [3, 3] },
+            ticks: {
+              color: '#9ca3af',
+              font: { family: 'Inter', size: 11 },
+              callback: v => '$' + v
+            }
+          }
+        }
+      }
+    });
+  }
+
+  function renderPeakDay(d) {
+    $('peak-day-name').textContent = d.peak_day || '—';
+    const amt = d.peak_day_amount || 0;
+    $('peak-day-amount').textContent = amt >= 1000 ? '$' + (amt/1000).toFixed(1) + 'k' : '$' + amt.toFixed(2);
+  }
+
+  // ── Transactions table ─────────────────────────────────────────────────
+  let currentTransactions = [];
+
+  function renderTransactions(txs, feePct, total, page, pages) {
+    currentTransactions = txs;
+    txState.page = page || 1; txState.pages = pages || 1; txState.total = total || txs.length;
+    $('tx-subtitle').textContent = `${(total||txs.length).toLocaleString()} transaction${(total||txs.length) !== 1 ? 's' : ''}`;
+    $('tx-pager-info').textContent = total > 10 ? `Page ${page} of ${pages}` : '';
+    $('tx-prev').disabled = (page || 1) <= 1;
+    $('tx-next').disabled = (page || 1) >= (pages || 1);
+    const tbody = $('tx-table-body');
+    if (!txs.length) {
+      tbody.innerHTML = '<tr><td colspan="6" style="padding:28px;text-align:center;color:var(--text-secondary);">No transactions yet</td></tr>';
+      return;
+    }
+    window._recentTxById = {};
+    txs.forEach((tx, i) => { window._recentTxById[i] = tx; });
+    tbody.innerHTML = txs.map((tx, i) => `
+      <tr class="clickable" onclick="openReservationModal(window._recentTxById[${i}])">
+        <td class="td-date">${escHtml(tx.date)}</td>
+        <td><span class="td-spot">${escHtml(tx.spot_id)}</span></td>
+        <td>${escHtml(tx.leaver)}</td>
+        <td>${escHtml(tx.driver)}</td>
+        <td class="td-amount">$${tx.amount.toFixed(2)}</td>
+        <td class="td-fee">$${tx.platform_fee.toFixed(2)}</td>
+      </tr>
+    `).join('');
+  }
+
+  // ── Export CSV ─────────────────────────────────────────────────────────
+  function exportCSV() {
+    if (!currentTransactions.length) { alert('No transaction data to export.'); return; }
+    const headers = ['Date', 'Spot ID', 'Leaver', 'Driver', 'Amount', 'Platform Fee'];
+    const rows = currentTransactions.map(tx => [
+      tx.date, tx.spot_id, tx.leaver, tx.driver,
+      tx.amount.toFixed(2), tx.platform_fee.toFixed(2)
+    ]);
+    const csv = [headers, ...rows].map(r => r.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'parkpass_transactions_' + new Date().toISOString().slice(0,10) + '.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // ── Download Data (full JSON) ──────────────────────────────────────────
+  function downloadData() {
+    if (!statsData) { alert('Data not loaded yet.'); return; }
+    const blob = new Blob([JSON.stringify(statsData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'parkpass_dashboard_' + new Date().toISOString().slice(0,10) + '.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // ── Tab switching ──────────────────────────────────────────────────────
+  function switchTab(tab) {
+    currentTab = tab;
+    ['revenue','transactions','spots','users'].forEach(t => {
+      $('tab-' + t).style.display = t === tab ? '' : 'none';
+    });
+    document.querySelectorAll('.tab-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.tab === tab);
+    });
+    document.querySelectorAll('.nav-item').forEach(a => {
+      a.classList.toggle('active', a.dataset.tab === tab);
+    });
+    // Load data for the selected tab
+    if (tab === 'transactions' && atxState.page === 1 && !allTxData.length) loadAllTx(1);
+    if (tab === 'spots') loadSpots(1);
+    if (tab === 'users') loadUsers(1);
+    // Fix map size if going back to revenue
+    if (tab === 'revenue' && leafletMap) setTimeout(() => leafletMap.invalidateSize(), 100);
+  }
+
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', function() { switchTab(this.dataset.tab); });
+  });
+  document.querySelectorAll('.nav-item[data-tab]').forEach(a => {
+    a.addEventListener('click', function(e) { e.preventDefault(); switchTab(this.dataset.tab); });
+  });
+
+  // ── Filter panel toggle ────────────────────────────────────────────────
+  function filterTransactions() {
+    const panel = $('filter-panel');
+    panel.style.display = panel.style.display === 'none' ? '' : 'none';
+  }
+
+  function applyFilter() {
+    txState.page = 1;
+    loadRecentTx();
+  }
+
+  function clearFilter() {
+    $('filter-date-from').value = '';
+    $('filter-date-to').value = '';
+    $('filter-status').value = '';
+    txState.page = 1;
+    loadRecentTx();
+  }
+
+  async function loadRecentTx() {
+    const token = getToken();
+    const params = new URLSearchParams({ page: txState.page, per_page: 10 });
+    const df = $('filter-date-from').value;
+    const dt = $('filter-date-to').value;
+    const st = $('filter-status').value;
+    if (df) params.set('date_from', df);
+    if (dt) params.set('date_to', dt);
+    if (st) params.set('status', st);
+
+    const resp = await fetch('/admin/transactions?' + params, { headers: { Authorization: 'Bearer ' + token } });
+    if (!resp.ok) return;
+    const body = await resp.json();
+    const d = body.data || body;
+    renderTransactions(d.transactions || [], statsData?.fee_pct || 15, d.total, d.page, d.pages);
+  }
+
+  function txPageChange(dir) {
+    const np = txState.page + dir;
+    if (np < 1 || np > txState.pages) return;
+    txState.page = np;
+    loadRecentTx();
+  }
+
+  // ── All Transactions Tab ───────────────────────────────────────────────
+  async function loadAllTx(page) {
+    atxState.page = page || atxState.page;
+    const token = getToken();
+    const params = new URLSearchParams({ page: atxState.page, per_page: 20 });
+    const df = $('atx-date-from').value;
+    const dt = $('atx-date-to').value;
+    const st = $('atx-status').value;
+    if (df) params.set('date_from', df);
+    if (dt) params.set('date_to', dt);
+    if (st) params.set('status', st);
+
+    $('all-tx-body').innerHTML = '<tr><td colspan="8" style="padding:28px;text-align:center;color:#9ca3af;">Loading…</td></tr>';
+    const resp = await fetch('/admin/transactions?' + params, { headers: { Authorization: 'Bearer ' + token } });
+    if (!resp.ok) return;
+    const body = await resp.json();
+    const d = body.data || body;
+    allTxData = d.transactions || [];
+    atxState.pages = d.pages; atxState.total = d.total;
+
+    $('all-tx-subtitle').textContent = `${d.total.toLocaleString()} total transaction${d.total !== 1 ? 's' : ''}`;
+    $('all-tx-pager-info').textContent = `Showing ${((atxState.page-1)*20)+1}–${Math.min(atxState.page*20, d.total)} of ${d.total}`;
+    $('atx-prev').disabled = atxState.page <= 1;
+    $('atx-next').disabled = atxState.page >= atxState.pages;
+
+    const statusColors = { COMPLETED:'#d1fae5', ACTIVE:'#dbeafe', CANCELLED:'#fee2e2', REFUNDED:'#fef3c7', PENDING:'#f3f4f6' };
+    const statusText =   { COMPLETED:'#065f46', ACTIVE:'#1e3db8', CANCELLED:'#991b1b', REFUNDED:'#92400e', PENDING:'#374151' };
+
+    window._allTxById = {};
+    allTxData.forEach((tx, i) => { window._allTxById[i] = tx; });
+
+    $('all-tx-body').innerHTML = allTxData.length ? allTxData.map((tx, i) => `
+      <tr class="clickable" onclick="openReservationModal(window._allTxById[${i}])">
+        <td class="td-date">${escHtml(tx.date)}</td>
+        <td><span class="td-spot">${escHtml(tx.spot_id)}</span></td>
+        <td style="font-size:12px;color:#6b7280;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(tx.spot_address || '')}</td>
+        <td>${escHtml(tx.leaver)}</td>
+        <td>${escHtml(tx.driver)}</td>
+        <td class="td-amount">$${tx.amount.toFixed(2)}</td>
+        <td><span style="background:${statusColors[tx.status]||'#f3f4f6'};color:${statusText[tx.status]||'#374151'};padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700;">${tx.status}</span></td>
+        <td class="td-fee">$${tx.platform_fee.toFixed(2)}</td>
+      </tr>`).join('')
+      : '<tr><td colspan="8" style="padding:28px;text-align:center;color:#9ca3af;">No transactions found</td></tr>';
+  }
+
+  function atxPageChange(dir) {
+    const np = atxState.page + dir;
+    if (np < 1 || np > atxState.pages) return;
+    loadAllTx(np);
+  }
+
+  function exportAllTxCSV() {
+    if (!allTxData.length) { alert('No data to export.'); return; }
+    const headers = ['Date','Spot ID','Address','Leaver','Driver','Amount','Status','Platform Fee'];
+    const rows = allTxData.map(tx => [tx.date, tx.spot_id, tx.spot_address||'', tx.leaver, tx.driver, tx.amount.toFixed(2), tx.status, tx.platform_fee.toFixed(2)]);
+    const csv = [headers, ...rows].map(r => r.map(v => '"' + String(v).replace(/"/g,'""') + '"').join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url;
+    a.download = 'parkpass_transactions_' + new Date().toISOString().slice(0,10) + '.csv';
+    a.click(); URL.revokeObjectURL(url);
+  }
+
+  // ── Spots Tab ──────────────────────────────────────────────────────────
+  async function loadSpots(page) {
+    spotsState.page = page || spotsState.page;
+    const token = getToken();
+    const params = new URLSearchParams({ page: spotsState.page, per_page: 20 });
+    const q = $('spots-search').value.trim();
+    const st = $('spots-status').value;
+    if (q) params.set('q', q);
+    if (st) params.set('status', st);
+
+    $('spots-body').innerHTML = '<tr><td colspan="7" style="padding:28px;text-align:center;color:#9ca3af;">Loading…</td></tr>';
+    const resp = await fetch('/admin/spots?' + params, { headers: { Authorization: 'Bearer ' + token } });
+    if (!resp.ok) return;
+    const body = await resp.json();
+    const d = body.data || body;
+    spotsState.pages = d.pages; spotsState.total = d.total;
+
+    $('spots-subtitle').textContent = `${d.total.toLocaleString()} spot${d.total !== 1 ? 's' : ''}`;
+    $('spots-pager-info').textContent = `Showing ${((spotsState.page-1)*20)+1}–${Math.min(spotsState.page*20, d.total)} of ${d.total}`;
+    $('spots-prev').disabled = spotsState.page <= 1;
+    $('spots-next').disabled = spotsState.page >= spotsState.pages;
+
+    const statusColors = { AVAILABLE:'#d1fae5', RESERVED:'#dbeafe', COMPLETED:'#e5e7eb', CANCELLED:'#fee2e2', EXPIRED:'#fef3c7' };
+    const statusText   = { AVAILABLE:'#065f46', RESERVED:'#1e3db8', COMPLETED:'#374151', CANCELLED:'#991b1b', EXPIRED:'#92400e' };
+
+    const spots = d.spots || [];
+    window._spotsById = {};
+    spots.forEach(s => { window._spotsById[s.id] = s; });
+
+    $('spots-body').innerHTML = spots.length ? spots.map(s => `
+      <tr class="clickable" onclick="openSpotModal(window._spotsById['${escHtml(s.id)}'])">
+        <td><span class="td-spot">${escHtml(s.label)}</span></td>
+        <td style="font-weight:600;color:#111827;">${escHtml(s.address)}</td>
+        <td><span style="background:${statusColors[s.status]||'#f3f4f6'};color:${statusText[s.status]||'#374151'};padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700;">${s.status}</span></td>
+        <td class="td-amount">$${s.price.toFixed(2)}</td>
+        <td>${escHtml(s.leaver_name)}</td>
+        <td style="color:#6b7280;">${s.leaving_in_minutes === 0 ? 'Now' : s.leaving_in_minutes + ' min'}</td>
+        <td class="td-date">${escHtml(s.created_at)}</td>
+      </tr>`).join('')
+      : '<tr><td colspan="7" style="padding:28px;text-align:center;color:#9ca3af;">No spots found</td></tr>';
+  }
+
+  function spotsPageChange(dir) {
+    const np = spotsState.page + dir;
+    if (np < 1 || np > spotsState.pages) return;
+    loadSpots(np);
+  }
+
+  // ── Users Tab ──────────────────────────────────────────────────────────
+  async function loadUsers(page) {
+    usersState.page = page || usersState.page;
+    const token = getToken();
+    const params = new URLSearchParams({ page: usersState.page, per_page: 20 });
+    const q = $('users-search').value.trim();
+    if (q) params.set('q', q);
+
+    $('users-body').innerHTML = '<tr><td colspan="8" style="padding:28px;text-align:center;color:#9ca3af;">Loading…</td></tr>';
+    const resp = await fetch('/admin/users?' + params, { headers: { Authorization: 'Bearer ' + token } });
+    if (!resp.ok) return;
+    const body = await resp.json();
+    const d = body.data || body;
+    usersState.pages = d.pages; usersState.total = d.total;
+
+    $('users-subtitle').textContent = `${d.total.toLocaleString()} user${d.total !== 1 ? 's' : ''}`;
+    $('users-pager-info').textContent = `Showing ${((usersState.page-1)*20)+1}–${Math.min(usersState.page*20, d.total)} of ${d.total}`;
+    $('users-prev').disabled = usersState.page <= 1;
+    $('users-next').disabled = usersState.page >= usersState.pages;
+
+    const users = d.users || [];
+    $('users-body').innerHTML = users.length ? users.map(u => `
+      <tr>
+        <td style="font-weight:600;color:#111827;">${escHtml(u.full_name)}</td>
+        <td style="color:#6b7280;font-size:13px;">${escHtml(u.email)}</td>
+        <td style="color:#f59e0b;font-weight:600;">★ ${u.avg_rating.toFixed(1)}</td>
+        <td style="color:#374151;">🪙 ${u.token_balance}</td>
+        <td style="text-align:center;">${u.total_reservations}</td>
+        <td style="text-align:center;">${u.total_listings}</td>
+        <td class="td-date">${escHtml(u.created_at)}</td>
+        <td>${u.is_admin ? '<span style="background:#dbeafe;color:#1e3db8;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700;">Admin</span>' : '<span style="background:#f3f4f6;color:#6b7280;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700;">User</span>'}</td>
+      </tr>`).join('')
+      : '<tr><td colspan="8" style="padding:28px;text-align:center;color:#9ca3af;">No users found</td></tr>';
+  }
+
+  function usersPageChange(dir) {
+    const np = usersState.page + dir;
+    if (np < 1 || np > usersState.pages) return;
+    loadUsers(np);
+  }
+
+  // ── Search ─────────────────────────────────────────────────────────────
+  let searchTimer = null;
+  $('search-input').addEventListener('input', function() {
+    clearTimeout(searchTimer);
+    const q = this.value.trim();
+    if (q.length < 2) { $('search-dropdown').style.display = 'none'; return; }
+    searchTimer = setTimeout(() => doSearch(q), 350);
+  });
+  $('search-input').addEventListener('blur', () => {
+    setTimeout(() => { $('search-dropdown').style.display = 'none'; }, 200);
+  });
+
+  async function doSearch(q) {
+    const token = getToken();
+    const resp = await fetch('/admin/search?q=' + encodeURIComponent(q), { headers: { Authorization: 'Bearer ' + token } });
+    if (!resp.ok) return;
+    const body = await resp.json();
+    const d = body.data || body;
+    renderSearchDropdown(d);
+  }
+
+  function renderSearchDropdown(d) {
+    const dd = $('search-dropdown');
+    const sections = [];
+
+    if (d.users && d.users.length) {
+      sections.push(`<div style="padding:8px 14px;font-size:10px;font-weight:800;color:#9ca3af;letter-spacing:.8px;text-transform:uppercase;">Users</div>`);
+      d.users.forEach(u => {
+        sections.push(`<div onclick="switchTab('users');$('users-search').value='${escHtml(u.full_name)}';loadUsers(1);$('search-dropdown').style.display='none';$('search-input').value='';" style="padding:10px 14px;cursor:pointer;display:flex;align-items:center;gap:10px;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background=''">
+          <div style="width:30px;height:30px;border-radius:50%;background:#374151;color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;">${escHtml(u.full_name[0].toUpperCase())}</div>
+          <div><div style="font-size:13px;font-weight:600;color:#111827;">${escHtml(u.full_name)}</div><div style="font-size:11px;color:#9ca3af;">${escHtml(u.email)}</div></div>
+        </div>`);
+      });
+    }
+
+    if (d.spots && d.spots.length) {
+      sections.push(`<div style="padding:8px 14px;font-size:10px;font-weight:800;color:#9ca3af;letter-spacing:.8px;text-transform:uppercase;border-top:1px solid #f3f4f6;">Spots</div>`);
+      d.spots.forEach(s => {
+        sections.push(`<div onclick="switchTab('spots');$('spots-search').value='${escHtml(s.address)}';loadSpots(1);$('search-dropdown').style.display='none';$('search-input').value='';" style="padding:10px 14px;cursor:pointer;display:flex;align-items:center;gap:10px;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background=''">
+          <div style="width:30px;height:30px;border-radius:8px;background:#dbeafe;color:#1e3db8;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;">🅿</div>
+          <div><div style="font-size:13px;font-weight:600;color:#111827;">${escHtml(s.address)}</div><div style="font-size:11px;color:#9ca3af;">$${s.price.toFixed(2)} · ${s.status}</div></div>
+        </div>`);
+      });
+    }
+
+    if (d.reservations && d.reservations.length) {
+      sections.push(`<div style="padding:8px 14px;font-size:10px;font-weight:800;color:#9ca3af;letter-spacing:.8px;text-transform:uppercase;border-top:1px solid #f3f4f6;">Reservations</div>`);
+      d.reservations.forEach(r => {
+        sections.push(`<div onclick="switchTab('transactions');$('search-dropdown').style.display='none';$('search-input').value='';" style="padding:10px 14px;cursor:pointer;display:flex;align-items:center;gap:10px;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background=''">
+          <div style="width:30px;height:30px;border-radius:8px;background:#d1fae5;color:#065f46;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;">🕐</div>
+          <div><div style="font-size:13px;font-weight:600;color:#111827;">${escHtml(r.spot_id)}</div><div style="font-size:11px;color:#9ca3af;">${escHtml(r.driver_name)} → ${escHtml(r.leaver_name)} · ${r.status}</div></div>
+        </div>`);
+      });
+    }
+
+    if (!sections.length) {
+      sections.push(`<div style="padding:20px;text-align:center;color:#9ca3af;font-size:13px;">No results found</div>`);
+    }
+
+    dd.innerHTML = sections.join('');
+    dd.style.display = '';
+  }
+
+  // ── XSS helper ────────────────────────────────────────────────────────
+  function escHtml(s) {
+    if (!s) return '';
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  // Initialize map on dashboard load (so Leaflet has correct dimensions)
+  $('dashboard').addEventListener('transitionend', () => {
+    if (leafletMap) leafletMap.invalidateSize();
+  });
+
+  const mapObserver = new MutationObserver(() => {
+    if ($('dashboard').classList.contains('visible') && leafletMap) {
+      setTimeout(() => leafletMap.invalidateSize(), 100);
+    }
+  });
+  mapObserver.observe($('dashboard'), { attributes: true, attributeFilter: ['class'] });
+
+  $('heatmap-toggle-btn').addEventListener('click', toggleHeatmap);
+
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDetailModal(); });
+</script>
+</body>
+</html>

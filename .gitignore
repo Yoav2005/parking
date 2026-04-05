@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+dist/
+build/
+
+# Env files (never commit secrets)
+.env
+.env.*
+!.env.example
+
+# Docker
+*.log
+
+# Node / Expo
+node_modules/
+.expo/
+dist/
+web-build/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Uploads (user data, not source)
+backend/uploads/
+
+# Claude / editor
+.claude/
+.vscode/
+
+# Google Play key
+google-play-key.json

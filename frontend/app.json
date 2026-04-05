@@ -1,0 +1,55 @@
+{
+  "expo": {
+    "name": "ParkPass",
+    "slug": "parkpass",
+    "version": "1.0.0",
+    "sdkVersion": "54.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#1E40AF"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.parkpass.app",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "ParkPass needs your location to show nearby spots and list your spot.",
+        "NSLocationAlwaysUsageDescription": "ParkPass needs your location to show nearby spots.",
+        "NSCameraUsageDescription": "ParkPass needs camera access to take spot photos."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#1E40AF"
+      },
+      "package": "com.parkpass.app",
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "CAMERA"
+      ]
+    },
+    "plugins": [
+      "expo-location",
+      "expo-image-picker",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#1E40AF"
+        }
+      ]
+    ],
+    "scheme": "parkpass",
+    "extra": {
+      "eas": {
+        "projectId": "YOUR_EAS_PROJECT_ID"
+      }
+    }
+  }
+}
