@@ -15,8 +15,13 @@ class ConnectionManager:
         self._pubsub_task: asyncio.Task | None = None
 
     async def startup(self):
-        self._redis = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
-        self._pubsub_task = asyncio.create_task(self._listen())
+        try:
+            self._redis = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
+            await self._redis.ping()
+            self._pubsub_task = asyncio.create_task(self._listen())
+        except Exception as e:
+            print(f"WARNING: Redis connection failed: {e}. WebSocket pub/sub disabled.")
+            self._redis = None
 
     async def shutdown(self):
         if self._pubsub_task:
