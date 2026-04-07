@@ -2199,7 +2199,8 @@
     if (d.spots && d.spots.length) {
       sections.push(`<div style="padding:8px 14px;font-size:10px;font-weight:800;color:#9ca3af;letter-spacing:.8px;text-transform:uppercase;border-top:1px solid #f3f4f6;">Spots</div>`);
       d.spots.forEach(s => {
-        sections.push(`<div onclick="switchTab('spots');$('spots-search').value='${escHtml(s.address)}';loadSpots(1);$('search-dropdown').style.display='none';$('search-input').value='';" style="padding:10px 14px;cursor:pointer;display:flex;align-items:center;gap:10px;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background=''">
+        const sid = JSON.stringify(s).replace(/"/g, '&quot;');
+        sections.push(`<div onclick="$('search-dropdown').style.display='none';$('search-input').value='';openSpotModal(${sid});" style="padding:10px 14px;cursor:pointer;display:flex;align-items:center;gap:10px;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background=''">
           <div style="width:30px;height:30px;border-radius:8px;background:#dbeafe;color:#1e3db8;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;">🅿</div>
           <div><div style="font-size:13px;font-weight:600;color:#111827;">${escHtml(s.address)}</div><div style="font-size:11px;color:#9ca3af;">$${s.price.toFixed(2)} · ${s.status}</div></div>
         </div>`);
@@ -2209,9 +2210,10 @@
     if (d.reservations && d.reservations.length) {
       sections.push(`<div style="padding:8px 14px;font-size:10px;font-weight:800;color:#9ca3af;letter-spacing:.8px;text-transform:uppercase;border-top:1px solid #f3f4f6;">Reservations</div>`);
       d.reservations.forEach(r => {
-        sections.push(`<div onclick="switchTab('transactions');$('search-dropdown').style.display='none';$('search-input').value='';" style="padding:10px 14px;cursor:pointer;display:flex;align-items:center;gap:10px;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background=''">
+        const rid = JSON.stringify(r).replace(/"/g, '&quot;');
+        sections.push(`<div onclick="$('search-dropdown').style.display='none';$('search-input').value='';openReservationModal(${rid});" style="padding:10px 14px;cursor:pointer;display:flex;align-items:center;gap:10px;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background=''">
           <div style="width:30px;height:30px;border-radius:8px;background:#d1fae5;color:#065f46;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;">🕐</div>
-          <div><div style="font-size:13px;font-weight:600;color:#111827;">${escHtml(r.spot_id)}</div><div style="font-size:11px;color:#9ca3af;">${escHtml(r.driver_name)} → ${escHtml(r.leaver_name)} · ${r.status}</div></div>
+          <div><div style="font-size:13px;font-weight:600;color:#111827;">${escHtml(r.spot_address)}</div><div style="font-size:11px;color:#9ca3af;">${escHtml(r.driver_name)} → ${escHtml(r.leaver_name)} · ${r.status}</div></div>
         </div>`);
       });
     }

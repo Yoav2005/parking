@@ -618,10 +618,21 @@ async def admin_search(
         .limit(5)
     )
     spots = spot_result.scalars().all()
-    spot_list = [
-        {"id": s.id, "address": s.address, "status": s.status.value, "price": round(s.price, 2)}
-        for s in spots
-    ]
+    spot_list = []
+    for s in spots:
+        leaver = await db.get(User, s.leaver_id) if s.leaver_id else None
+        mins = int((s.leaving_at - datetime.now(timezone.utc)).total_seconds() / 60) if s.leaving_at else 0
+        spot_list.append({
+            "id": s.id, "label": _spot_label(s.id),
+            "address": s.address, "status": s.status.value,
+            "price": round(s.price, 2),
+            "lat": s.latitude, "lng": s.longitude,
+            "photo_url": s.photo_url,
+            "leaver_name": _fmt_name(leaver.full_name) if leaver else "—",
+            "leaver_email": leaver.email if leaver else "—",
+            "leaving_in_minutes": max(0, mins),
+            "created_at": _fmt_date(s.created_at),
+        })
 
     # Search reservations by spot address
     Driver = aliased(User)
@@ -641,7 +652,16 @@ async def admin_search(
             "status": res.status.value,
             "spot_address": spot.address,
             "spot_id": _spot_label(spot.id),
+            "spot_raw_id": spot.id,
             "driver_name": _fmt_name(driver.full_name),
+            "driver_email": driver.email,
+            "leaver_name": _fmt_name(leaver.full_name),
+            "leaver_email": leaver.email,
+            "lat": spot.latitude, "lng": spot.longitude,
+            "photo_url": spot.photo_url,
+            "amount": round(spot.price, 2),
+            "platform_fee": round(spot.price * settings.PLATFORM_FEE_PERCENT, 2),
+            "created_at": _fmt_date(res.created_at),
         }
         for res, spot, driver, leaver in res_rows
     ]

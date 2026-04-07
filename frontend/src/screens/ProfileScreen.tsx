@@ -7,6 +7,7 @@ import * as ImagePicker from "expo-image-picker";
 import { useAuthStore } from "../store/authStore";
 import { reservationsApi } from "../api/reservations";
 import { apiClient } from "../api/client";
+import HelpScreen from "./HelpScreen";
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:8000";
 const fullPhotoUrl = (url: string | null | undefined) =>
@@ -134,6 +135,8 @@ export default function ProfileScreen() {
   const [history, setHistory] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [ratingTarget, setRatingTarget] = useState<{ reservationId: string; ratedId: string } | null>(null);
+
+  const [helpVisible, setHelpVisible] = useState(false);
 
   // Edit profile modal
   const [editVisible, setEditVisible] = useState(false);
@@ -266,7 +269,7 @@ export default function ProfileScreen() {
           <Text style={styles.headerBtnText}>☰</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>ParkPass</Text>
-        <TouchableOpacity style={styles.helpBtn}>
+        <TouchableOpacity style={styles.helpBtn} onPress={() => setHelpVisible(true)}>
           <Text style={styles.helpBtnText}>?</Text>
         </TouchableOpacity>
       </View>
@@ -439,6 +442,8 @@ export default function ProfileScreen() {
           onDone={() => setRatingTarget(null)}
         />
       )}
+
+      <HelpScreen visible={helpVisible} onClose={() => setHelpVisible(false)} />
 
       {/* ── Edit Profile Modal ── */}
       <Modal visible={editVisible} animationType="slide" transparent statusBarTranslucent>
