@@ -13,12 +13,17 @@ class Settings(BaseSettings):
 
     @property
     def async_database_url(self) -> str:
-        """Ensure the URL uses asyncpg driver (Railway provides plain postgresql://)."""
+        """Ensure the URL uses asyncpg driver + SSL for Railway."""
         url = self.DATABASE_URL
         if url.startswith("postgres://"):
             url = url.replace("postgres://", "postgresql+asyncpg://", 1)
         elif url.startswith("postgresql://") and "+asyncpg" not in url:
             url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+        # Add SSL for Railway (required for external Postgres connections)
+        if "railway" in url or ("localhost" not in url and "127.0.0.1" not in url and "@db:" not in url):
+            if "sslmode" not in url and "ssl=" not in url:
+                sep = "&" if "?" in url else "?"
+                url = url + sep + "ssl=require"
         return url
     REDIS_URL: str = "redis://redis:6379"
     SECRET_KEY: str = "changeme-in-production-use-a-long-random-string"
