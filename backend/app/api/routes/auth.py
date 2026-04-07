@@ -1,7 +1,7 @@
 import json
 import random
 import string
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 import redis.asyncio as aioredis
@@ -31,7 +31,7 @@ def _gen_otp() -> str:
 # ── Two-step registration ──────────────────────────────────────────────
 
 @router.post("/register/initiate")
-async def register_initiate(body: UserRegister, db: AsyncSession = Depends(get_db)):
+async def register_initiate(body: UserRegister, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db)):
     """Step 1: validate fields, send OTP email, store pending registration in Redis."""
     existing = await db.execute(select(User).where(User.email == body.email))
     if existing.scalar_one_or_none():
@@ -44,16 +44,22 @@ async def register_initiate(body: UserRegister, db: AsyncSession = Depends(get_d
         "full_name": body.full_name,
         "otp": otp,
     }
-    r = _redis()
-    await r.set(f"{OTP_PREFIX}{body.email}", json.dumps(pending), ex=OTP_TTL)
-    await r.aclose()
-
     try:
-        await send_otp_email(body.email, otp, body.full_name)
+        r = _redis()
+        await r.set(f"{OTP_PREFIX}{body.email}", json.dumps(pending), ex=OTP_TTL)
+        await r.aclose()
     except Exception as e:
-        print(f"[email] failed to send OTP: {e}")
-        print(f"[DEV] OTP for {body.email}: {otp}")
+        print(f"[redis] failed to store OTP: {e}")
+        raise HTTPException(status_code=503, detail=f"Registration unavailable (Redis error): {e}")
 
+    async def _send():
+        try:
+            await send_otp_email(body.email, otp, body.full_name)
+        except Exception as e:
+            print(f"[email] failed to send OTP: {e}")
+            print(f"[DEV] OTP for {body.email}: {otp}")
+
+    background_tasks.add_task(_send)
     return ok({"message": "OTP sent", "email": body.email})
 
 
