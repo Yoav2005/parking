@@ -7,6 +7,10 @@ import * as ImagePicker from "expo-image-picker";
 import { useAuthStore } from "../store/authStore";
 import { reservationsApi } from "../api/reservations";
 import { apiClient } from "../api/client";
+
+const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:8000";
+const fullPhotoUrl = (url: string | null | undefined) =>
+  url ? (url.startsWith("http") ? url : `${API_URL}${url}`) : null;
 import { RatingModal } from "../components/RatingModal";
 import { CAR_MAKES, getModelsForMake } from "../constants/cars";
 import { useAddress } from "../hooks/useAddress";
@@ -272,7 +276,7 @@ export default function ProfileScreen() {
         <View style={styles.profileHero}>
           <TouchableOpacity style={styles.avatarWrap} onPress={openEditModal}>
             {user?.profile_photo_url ? (
-              <Image source={{ uri: user.profile_photo_url }} style={styles.avatarImg} />
+              <Image source={{ uri: fullPhotoUrl(user.profile_photo_url)! }} style={styles.avatarImg} />
             ) : (
               <View style={styles.avatar}>
                 <Text style={styles.avatarText}>{user?.full_name?.charAt(0).toUpperCase() ?? "U"}</Text>
@@ -454,7 +458,7 @@ export default function ProfileScreen() {
               {editPhotoUri ? (
                 <Image source={{ uri: editPhotoUri }} style={edit.photoPreview} />
               ) : user?.profile_photo_url ? (
-                <Image source={{ uri: user.profile_photo_url }} style={edit.photoPreview} />
+                <Image source={{ uri: fullPhotoUrl(user.profile_photo_url)! }} style={edit.photoPreview} />
               ) : (
                 <View style={edit.photoPlaceholder}>
                   <Text style={edit.photoPlaceholderText}>{user?.full_name?.charAt(0).toUpperCase() ?? "U"}</Text>
