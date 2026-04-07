@@ -16,12 +16,12 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://YOUR_RAILWAY_URL"
+        "EXPO_PUBLIC_API_URL": "https://parking-production-1766.up.railway.app"
       }
     },
     "production": {
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://YOUR_RAILWAY_URL"
+        "EXPO_PUBLIC_API_URL": "https://parking-production-1766.up.railway.app"
       }
     }
   },
