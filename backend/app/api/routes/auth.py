@@ -52,7 +52,7 @@ async def register_initiate(body: UserRegister, db: AsyncSession = Depends(get_d
         await send_otp_email(body.email, otp, body.full_name)
     except Exception as e:
         print(f"[email] failed to send OTP: {e}")
-        # Still succeed — dev mode prints OTP to console
+        print(f"[DEV] OTP for {body.email}: {otp}")
 
     return ok({"message": "OTP sent", "email": body.email})
 

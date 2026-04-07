@@ -35,7 +35,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const token = await SecureStore.getItemAsync("access_token");
     const userStr = await SecureStore.getItemAsync("user");
     if (token && userStr) {
-      set({ user: JSON.parse(userStr) });
+      try {
+        // Validate token is still accepted by the server
+        await apiClient.get("/users/me");
+        set({ user: JSON.parse(userStr) });
+      } catch {
+        // Token invalid/expired — clear storage so auth screen is shown
+        await SecureStore.deleteItemAsync("access_token");
+        await SecureStore.deleteItemAsync("refresh_token");
+        await SecureStore.deleteItemAsync("user");
+      }
     }
   },
 
