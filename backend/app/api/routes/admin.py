@@ -685,6 +685,73 @@ async def admin_heatmap(
     return ok({"points": points})
 
 
+async def admin_user_detail(
+    user_id: str,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    user = await db.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Reservations as driver
+    driver_res = await db.execute(
+        select(Reservation).where(Reservation.driver_id == user_id).order_by(Reservation.created_at.desc())
+    )
+    driver_reservations = driver_res.scalars().all()
+
+    # Reservations as leaver (via spots)
+    leaver_spots_res = await db.execute(select(Spot).where(Spot.leaver_id == user_id))
+    leaver_spots = {s.id: s for s in leaver_spots_res.scalars().all()}
+    leaver_res = await db.execute(
+        select(Reservation).where(Reservation.spot_id.in_(leaver_spots.keys())).order_by(Reservation.created_at.desc())
+    )
+    leaver_reservations = leaver_res.scalars().all()
+
+    async def fmt_res(res, role):
+        spot = await db.get(Spot, res.spot_id)
+        other_id = spot.leaver_id if role == "driver" else res.driver_id
+        other = await db.get(User, other_id) if other_id else None
+        return {
+            "id": res.id,
+            "role": role,
+            "status": res.status.value if hasattr(res.status, "value") else str(res.status),
+            "spot_address": spot.address if spot else "—",
+            "other_name": other.full_name if other else "—",
+            "created_at": _fmt_date(res.created_at),
+        }
+
+    reservations = []
+    for r in driver_reservations:
+        reservations.append(await fmt_res(r, "driver"))
+    for r in leaver_reservations:
+        reservations.append(await fmt_res(r, "leaver"))
+    reservations.sort(key=lambda x: x["created_at"], reverse=True)
+
+    return ok({
+        "id": user.id,
+        "full_name": user.full_name,
+        "email": user.email,
+        "avg_rating": round(user.avg_rating, 2),
+        "token_balance": user.token_balance,
+        "car_make": user.car_make,
+        "car_model": user.car_model,
+        "profile_photo_url": user.profile_photo_url,
+        "is_admin": user.is_admin,
+        "created_at": _fmt_date(user.created_at),
+        "reservations": reservations,
+    })
+
+
+@router.get("/users/{user_id}")
+async def _admin_user_detail_route(
+    user_id: str,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    return await admin_user_detail(user_id, db, admin)
+
+
 @router.post("/make-admin")
 async def make_admin(
     email: str,
