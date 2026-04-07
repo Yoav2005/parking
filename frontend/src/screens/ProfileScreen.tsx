@@ -75,16 +75,31 @@ function HistoryItem({ item, onRate, formatDate }: {
   formatDate: (iso: string) => string;
 }) {
   const address = useAddress(item.spot_address);
+  const isDriver = item.role === "driver";
+  const otherName = isDriver ? item.leaver_name : item.driver_name;
+
   return (
-    <View style={styles.historyCard}>
+    <View style={[styles.historyCard, isDriver ? styles.historyCardDriver : styles.historyCardLeaver]}>
       <View style={styles.historyCardLeft}>
-        <View style={styles.historyIcon}>
-          <Text style={styles.historyIconText}>🅿️</Text>
+        <View style={[styles.historyIcon, isDriver ? styles.historyIconDriver : styles.historyIconLeaver]}>
+          <Text style={styles.historyIconText}>{isDriver ? "🚗" : "🅿️"}</Text>
         </View>
         <View style={styles.historyInfo}>
+          <View style={styles.historyRoleRow}>
+            <View style={[styles.roleBadge, isDriver ? styles.roleBadgeDriver : styles.roleBadgeLeaver]}>
+              <Text style={[styles.roleText, isDriver ? styles.roleTextDriver : styles.roleTextLeaver]}>
+                {isDriver ? "DRIVER" : "LEAVER"}
+              </Text>
+            </View>
+          </View>
           <Text style={styles.historyAddress} numberOfLines={1}>
             {address || "Parking spot"}
           </Text>
+          {otherName && (
+            <Text style={styles.historyOther}>
+              {isDriver ? `Leaver: ${otherName}` : `Driver: ${otherName}`}
+            </Text>
+          )}
           <Text style={styles.historyDate}>{formatDate(item.created_at)}</Text>
         </View>
       </View>
@@ -94,7 +109,7 @@ function HistoryItem({ item, onRate, formatDate }: {
             {item.status}
           </Text>
         </View>
-        {item.status === "COMPLETED" && item.leaver_id && (
+        {item.status === "COMPLETED" && item.leaver_id && isDriver && (
           <TouchableOpacity
             style={styles.rateBtn}
             onPress={() => onRate(item.id, item.leaver_id)}
@@ -109,7 +124,7 @@ function HistoryItem({ item, onRate, formatDate }: {
 
 // ── Main screen ────────────────────────────────────────────────────────
 export default function ProfileScreen() {
-  const { user, logout, updateProfile } = useAuthStore();
+  const { user, logout, updateProfile, refreshUser } = useAuthStore();
   const [history, setHistory] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [ratingTarget, setRatingTarget] = useState<{ reservationId: string; ratedId: string } | null>(null);
@@ -124,6 +139,7 @@ export default function ProfileScreen() {
   const carChanged = carMake !== (user?.car_make ?? "") || carModel !== (user?.car_model ?? "");
 
   useEffect(() => {
+    refreshUser();
     reservationsApi.getAll()
       .then(({ data }) => {
         const all: any[] = data.data ?? [];
@@ -433,14 +449,26 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     shadowColor: "#000", shadowOpacity: 0.04, shadowRadius: 4, elevation: 2,
   },
+  historyCardDriver: { borderLeftWidth: 3, borderLeftColor: "#1E3DB8" },
+  historyCardLeaver: { borderLeftWidth: 3, borderLeftColor: "#059669" },
   historyCardLeft: { flexDirection: "row", alignItems: "center", flex: 1 },
   historyIcon: {
     width: 38, height: 38, borderRadius: 10,
-    backgroundColor: "#EEF1F8", alignItems: "center", justifyContent: "center", marginRight: 10,
+    alignItems: "center", justifyContent: "center", marginRight: 10,
   },
+  historyIconDriver: { backgroundColor: "#DBEAFE" },
+  historyIconLeaver: { backgroundColor: "#D1FAE5" },
   historyIconText: { fontSize: 18 },
   historyInfo: { flex: 1 },
+  historyRoleRow: { flexDirection: "row", marginBottom: 3 },
+  roleBadge: { borderRadius: 5, paddingHorizontal: 6, paddingVertical: 2 },
+  roleBadgeDriver: { backgroundColor: "#DBEAFE" },
+  roleBadgeLeaver: { backgroundColor: "#D1FAE5" },
+  roleText: { fontSize: 9, fontWeight: "800", letterSpacing: 0.8 },
+  roleTextDriver: { color: "#1E3DB8" },
+  roleTextLeaver: { color: "#059669" },
   historyAddress: { fontSize: 14, fontWeight: "700", color: "#111827", maxWidth: 160 },
+  historyOther: { fontSize: 12, color: "#6B7280", marginTop: 1 },
   historyDate: { fontSize: 12, color: "#9CA3AF", marginTop: 2 },
   historyCardRight: { alignItems: "flex-end", gap: 6 },
   statusBadge: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },

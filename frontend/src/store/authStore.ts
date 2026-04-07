@@ -24,6 +24,7 @@ interface AuthState {
   logout: () => Promise<void>;
   loadFromStorage: () => Promise<void>;
   updateProfile: (patch: { car_make?: string; car_model?: string }) => Promise<void>;
+  refreshUser: () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -94,6 +95,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     await SecureStore.deleteItemAsync("refresh_token");
     await SecureStore.deleteItemAsync("user");
     set({ user: null });
+  },
+
+  refreshUser: async () => {
+    try {
+      const { data } = await apiClient.get("/users/me");
+      const updated = data.data;
+      await SecureStore.setItemAsync("user", JSON.stringify(updated));
+      set({ user: updated });
+    } catch {}
   },
 
   updateProfile: async (patch) => {

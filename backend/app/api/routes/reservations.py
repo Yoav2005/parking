@@ -24,19 +24,36 @@ async def list_reservations(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
+    # Reservations where user was the driver
+    driver_result = await db.execute(
         select(Reservation)
         .where(Reservation.driver_id == current_user.id)
         .order_by(Reservation.created_at.desc())
     )
-    reservations = result.scalars().all()
+    driver_reservations = driver_result.scalars().all()
+
+    # Reservations where user was the leaver (their spot got reserved)
+    leaver_spots_result = await db.execute(
+        select(Spot).where(Spot.leaver_id == current_user.id)
+    )
+    leaver_spots = leaver_spots_result.scalars().all()
+    leaver_spot_ids = {s.id: s for s in leaver_spots}
+
+    leaver_result = await db.execute(
+        select(Reservation)
+        .where(Reservation.spot_id.in_(leaver_spot_ids.keys()))
+        .order_by(Reservation.created_at.desc())
+    )
+    leaver_reservations = leaver_result.scalars().all()
 
     out = []
-    for res in reservations:
+
+    for res in driver_reservations:
         spot = await db.get(Spot, res.spot_id)
         leaver = await db.get(User, spot.leaver_id) if spot else None
         out.append({
             **ReservationOut.model_validate(res).model_dump(mode="json"),
+            "role": "driver",
             "spot_address": spot.address if spot else "",
             "spot_price": spot.price if spot else 0,
             "spot_lat": spot.latitude if spot else None,
@@ -47,6 +64,23 @@ async def list_reservations(
             "leaver_car_make": leaver.car_make if leaver else None,
             "leaver_car_model": leaver.car_model if leaver else None,
         })
+
+    for res in leaver_reservations:
+        spot = leaver_spot_ids.get(res.spot_id)
+        driver = await db.get(User, res.driver_id) if res.driver_id else None
+        out.append({
+            **ReservationOut.model_validate(res).model_dump(mode="json"),
+            "role": "leaver",
+            "spot_address": spot.address if spot else "",
+            "spot_price": spot.price if spot else 0,
+            "spot_lat": spot.latitude if spot else None,
+            "spot_lng": spot.longitude if spot else None,
+            "driver_id": res.driver_id,
+            "driver_name": driver.full_name if driver else None,
+            "driver_rating": driver.avg_rating if driver else None,
+        })
+
+    out.sort(key=lambda r: r["created_at"], reverse=True)
     return ok(out)
 
 
