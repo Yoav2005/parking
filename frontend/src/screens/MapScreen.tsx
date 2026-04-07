@@ -41,7 +41,7 @@ export default function MapScreen({ onSpotPress, onLeaveSpot, onGoToReservations
     } catch {}
   }, []);
 
-  useFocusEffect(refreshListingState);
+  useFocusEffect(useCallback(() => { refreshListingState(); }, [refreshListingState]));
 
   useEffect(() => {
     if (coords) fetchNearby(coords.latitude, coords.longitude);

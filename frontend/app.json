@@ -12,7 +12,9 @@
       "resizeMode": "contain",
       "backgroundColor": "#1E40AF"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.parkpass.app",
@@ -29,9 +31,10 @@
       },
       "package": "com.parkpass.app",
       "permissions": [
-        "ACCESS_FINE_LOCATION",
-        "ACCESS_COARSE_LOCATION",
-        "CAMERA"
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
       ]
     },
     "plugins": [
@@ -48,8 +51,9 @@
     "scheme": "parkpass",
     "extra": {
       "eas": {
-        "projectId": "YOUR_EAS_PROJECT_ID"
+        "projectId": "dd8ecbfe-ec97-4f98-b657-83b4eff3afaf"
       }
-    }
+    },
+    "owner": "yoav2005"
   }
 }
