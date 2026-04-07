@@ -621,7 +621,6 @@ async def admin_search(
     spot_list = []
     for s in spots:
         leaver = await db.get(User, s.leaver_id) if s.leaver_id else None
-        mins = int((s.leaving_at - datetime.now(timezone.utc)).total_seconds() / 60) if s.leaving_at else 0
         spot_list.append({
             "id": s.id, "label": _spot_label(s.id),
             "address": s.address, "status": s.status.value,
@@ -630,7 +629,7 @@ async def admin_search(
             "photo_url": s.photo_url,
             "leaver_name": _fmt_name(leaver.full_name) if leaver else "—",
             "leaver_email": leaver.email if leaver else "—",
-            "leaving_in_minutes": max(0, mins),
+            "leaving_in_minutes": s.leaving_in_minutes,
             "created_at": _fmt_date(s.created_at),
         })
 

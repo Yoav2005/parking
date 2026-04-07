@@ -43,5 +43,9 @@ class Settings(BaseSettings):
     SMTP_PASS: str = ""
     SMTP_FROM: str = "ParkPass <noreply@parkpass.app>"
 
+    # Resend (preferred over SMTP — works on Railway)
+    RESEND_API_KEY: str = ""
+    RESEND_FROM: str = "ParkPass <onboarding@resend.dev>"
+
 
 settings = Settings()
