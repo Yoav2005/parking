@@ -12,6 +12,7 @@ interface User {
   token_balance: number;
   car_make?: string | null;
   car_model?: string | null;
+  profile_photo_url?: string | null;
 }
 
 interface AuthState {
@@ -111,6 +112,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const updated = data.data;
     const merged = { ...get().user, ...updated };
     await SecureStore.setItemAsync("user", JSON.stringify(merged));
-    set({ user: merged });
+    set({ user: merged as any });
   },
 }));

@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from "react";
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
-  Alert, ActivityIndicator, SafeAreaView, Modal, FlatList,
+  Alert, ActivityIndicator, SafeAreaView, Modal, FlatList, TextInput, Image,
 } from "react-native";
+import * as ImagePicker from "expo-image-picker";
 import { useAuthStore } from "../store/authStore";
 import { reservationsApi } from "../api/reservations";
+import { apiClient } from "../api/client";
 import { RatingModal } from "../components/RatingModal";
 import { CAR_MAKES, getModelsForMake } from "../constants/cars";
 import { useAddress } from "../hooks/useAddress";
@@ -129,6 +131,12 @@ export default function ProfileScreen() {
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [ratingTarget, setRatingTarget] = useState<{ reservationId: string; ratedId: string } | null>(null);
 
+  // Edit profile modal
+  const [editVisible, setEditVisible] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editPhotoUri, setEditPhotoUri] = useState<string | null>(null);
+  const [savingProfile, setSavingProfile] = useState(false);
+
   // Car picker state
   const [carMake, setCarMake] = useState(user?.car_make ?? "");
   const [carModel, setCarModel] = useState(user?.car_model ?? "");
@@ -148,6 +156,58 @@ export default function ProfileScreen() {
       .catch(() => {})
       .finally(() => setLoadingHistory(false));
   }, []);
+
+  const openEditModal = () => {
+    setEditName(user?.full_name ?? "");
+    setEditPhotoUri(null);
+    setEditVisible(true);
+  };
+
+  const pickPhoto = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert("Permission needed", "Allow photo library access to change your profile picture.");
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.7,
+    });
+    if (!result.canceled) setEditPhotoUri(result.assets[0].uri);
+  };
+
+  const handleSaveProfile = async () => {
+    if (!editName.trim()) { Alert.alert("Error", "Name cannot be empty"); return; }
+    setSavingProfile(true);
+    try {
+      let photoUrl = user?.profile_photo_url ?? null;
+
+      if (editPhotoUri) {
+        const formData = new FormData();
+        formData.append("file", {
+          uri: editPhotoUri,
+          type: "image/jpeg",
+          name: "profile.jpg",
+        } as any);
+        const { data } = await apiClient.post("/upload", formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+        photoUrl = data.data.url;
+      }
+
+      await updateProfile({
+        full_name: editName.trim(),
+        profile_photo_url: photoUrl ?? undefined,
+      } as any);
+      setEditVisible(false);
+    } catch {
+      Alert.alert("Error", "Failed to save profile");
+    } finally {
+      setSavingProfile(false);
+    }
+  };
 
   const handleSaveCar = async () => {
     if (!carMake) { Alert.alert("Please select a car make"); return; }
@@ -186,21 +246,26 @@ export default function ProfileScreen() {
       <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
         {/* Profile hero */}
         <View style={styles.profileHero}>
-          <View style={styles.avatarWrap}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{user?.full_name?.charAt(0).toUpperCase() ?? "U"}</Text>
+          <TouchableOpacity style={styles.avatarWrap} onPress={openEditModal}>
+            {user?.profile_photo_url ? (
+              <Image source={{ uri: user.profile_photo_url }} style={styles.avatarImg} />
+            ) : (
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>{user?.full_name?.charAt(0).toUpperCase() ?? "U"}</Text>
+              </View>
+            )}
+            <View style={styles.editPhotoBadge}>
+              <Text style={styles.editPhotoIcon}>✎</Text>
             </View>
-            <View style={styles.verifiedBadge}>
-              <Text style={styles.verifiedIcon}>✓</Text>
-            </View>
-          </View>
+          </TouchableOpacity>
           <Text style={styles.profileName}>{user?.full_name}</Text>
+          <Text style={styles.profileEmail}>{user?.email}</Text>
           <Text style={styles.profileRating}>
             ★ {user?.avg_rating?.toFixed(1) ?? "0.0"} · {user?.avg_rating ? "Verified" : "New user"}
           </Text>
           <View style={styles.actionRow}>
-            <TouchableOpacity style={styles.actionBtnOutline}>
-              <Text style={styles.actionBtnOutlineText}>Update Profile</Text>
+            <TouchableOpacity style={styles.actionBtnOutline} onPress={openEditModal}>
+              <Text style={styles.actionBtnOutlineText}>Edit Profile</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.actionBtnFilled}
@@ -346,6 +411,56 @@ export default function ProfileScreen() {
           onDone={() => setRatingTarget(null)}
         />
       )}
+
+      {/* ── Edit Profile Modal ── */}
+      <Modal visible={editVisible} animationType="slide" transparent statusBarTranslucent>
+        <View style={edit.overlay}>
+          <TouchableOpacity style={edit.backdrop} activeOpacity={1} onPress={() => setEditVisible(false)} />
+          <View style={edit.sheet}>
+            <View style={edit.handle} />
+            <View style={edit.headerRow}>
+              <Text style={edit.title}>Edit Profile</Text>
+              <TouchableOpacity onPress={() => setEditVisible(false)}>
+                <Text style={edit.close}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Photo picker */}
+            <TouchableOpacity style={edit.photoPicker} onPress={pickPhoto}>
+              {editPhotoUri ? (
+                <Image source={{ uri: editPhotoUri }} style={edit.photoPreview} />
+              ) : user?.profile_photo_url ? (
+                <Image source={{ uri: user.profile_photo_url }} style={edit.photoPreview} />
+              ) : (
+                <View style={edit.photoPlaceholder}>
+                  <Text style={edit.photoPlaceholderText}>{user?.full_name?.charAt(0).toUpperCase() ?? "U"}</Text>
+                </View>
+              )}
+              <View style={edit.photoEditBadge}>
+                <Text style={edit.photoEditIcon}>📷</Text>
+              </View>
+            </TouchableOpacity>
+            <Text style={edit.photoHint}>Tap to change photo</Text>
+
+            {/* Name field */}
+            <Text style={edit.fieldLabel}>FULL NAME</Text>
+            <TextInput
+              style={edit.input}
+              value={editName}
+              onChangeText={setEditName}
+              placeholder="Your name"
+              autoCapitalize="words"
+            />
+
+            <TouchableOpacity style={edit.saveBtn} onPress={handleSaveProfile} disabled={savingProfile}>
+              {savingProfile
+                ? <ActivityIndicator color="#fff" />
+                : <Text style={edit.saveBtnText}>Save Changes</Text>
+              }
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -372,14 +487,16 @@ const styles = StyleSheet.create({
     backgroundColor: "#374151", alignItems: "center", justifyContent: "center",
   },
   avatarText: { color: "#fff", fontSize: 36, fontWeight: "700" },
-  verifiedBadge: {
+  avatarImg: { width: 88, height: 88, borderRadius: 44 },
+  editPhotoBadge: {
     position: "absolute", bottom: 0, right: 0,
     width: 26, height: 26, borderRadius: 13,
-    backgroundColor: "#22C55E", alignItems: "center", justifyContent: "center",
+    backgroundColor: "#1E3DB8", alignItems: "center", justifyContent: "center",
     borderWidth: 2, borderColor: "#fff",
   },
-  verifiedIcon: { color: "#fff", fontSize: 13, fontWeight: "800" },
-  profileName: { fontSize: 24, fontWeight: "800", color: "#111827", marginBottom: 4 },
+  editPhotoIcon: { color: "#fff", fontSize: 12 },
+  profileName: { fontSize: 24, fontWeight: "800", color: "#111827", marginBottom: 2 },
+  profileEmail: { fontSize: 13, color: "#9CA3AF", marginBottom: 4 },
   profileRating: { fontSize: 14, color: "#F59E0B", fontWeight: "600", marginBottom: 16 },
   actionRow: { flexDirection: "row", gap: 12 },
   actionBtnOutline: {
@@ -482,4 +599,42 @@ const styles = StyleSheet.create({
     borderRadius: 14, height: 52, alignItems: "center", justifyContent: "center",
   },
   logoutText: { color: "#EF4444", fontSize: 16, fontWeight: "600" },
+});
+
+const edit = StyleSheet.create({
+  overlay: { flex: 1, justifyContent: "flex-end" },
+  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.45)" },
+  sheet: {
+    backgroundColor: "#fff", borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    paddingHorizontal: 24, paddingBottom: 40,
+  },
+  handle: { width: 40, height: 4, borderRadius: 2, backgroundColor: "#E5E7EB", alignSelf: "center", marginTop: 12, marginBottom: 8 },
+  headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 12 },
+  title: { fontSize: 18, fontWeight: "800", color: "#111827" },
+  close: { fontSize: 20, color: "#9CA3AF", fontWeight: "700" },
+  photoPicker: { alignSelf: "center", marginTop: 8, position: "relative" },
+  photoPreview: { width: 90, height: 90, borderRadius: 45 },
+  photoPlaceholder: {
+    width: 90, height: 90, borderRadius: 45,
+    backgroundColor: "#374151", alignItems: "center", justifyContent: "center",
+  },
+  photoPlaceholderText: { color: "#fff", fontSize: 36, fontWeight: "700" },
+  photoEditBadge: {
+    position: "absolute", bottom: 0, right: 0,
+    width: 30, height: 30, borderRadius: 15,
+    backgroundColor: "#1E3DB8", alignItems: "center", justifyContent: "center",
+    borderWidth: 2, borderColor: "#fff",
+  },
+  photoEditIcon: { fontSize: 14 },
+  photoHint: { textAlign: "center", fontSize: 12, color: "#9CA3AF", marginTop: 6, marginBottom: 20 },
+  fieldLabel: { fontSize: 11, fontWeight: "700", color: "#9CA3AF", letterSpacing: 0.8, marginBottom: 6 },
+  input: {
+    backgroundColor: "#F3F4F6", borderRadius: 12, paddingHorizontal: 16,
+    height: 52, fontSize: 16, color: "#111827", marginBottom: 20,
+  },
+  saveBtn: {
+    backgroundColor: "#1E3DB8", borderRadius: 14,
+    height: 54, alignItems: "center", justifyContent: "center",
+  },
+  saveBtnText: { color: "#fff", fontSize: 16, fontWeight: "700" },
 });

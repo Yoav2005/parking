@@ -23,14 +23,17 @@ class UserOut(BaseModel):
     token_balance: int
     car_make: Optional[str] = None
     car_model: Optional[str] = None
+    profile_photo_url: Optional[str] = None
     created_at: datetime
 
     model_config = {"from_attributes": True}
 
 
 class UserUpdate(BaseModel):
+    full_name: Optional[str] = None
     car_make: Optional[str] = None
     car_model: Optional[str] = None
+    profile_photo_url: Optional[str] = None
 
 
 class TokenRefresh(BaseModel):
