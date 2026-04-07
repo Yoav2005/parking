@@ -163,19 +163,43 @@ export default function ProfileScreen() {
     setEditVisible(true);
   };
 
-  const pickPhoto = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== "granted") {
-      Alert.alert("Permission needed", "Allow photo library access to change your profile picture.");
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.7,
-    });
-    if (!result.canceled) setEditPhotoUri(result.assets[0].uri);
+  const pickPhoto = () => {
+    Alert.alert("Profile Photo", "Choose a source", [
+      {
+        text: "Take Photo",
+        onPress: async () => {
+          const { status } = await ImagePicker.requestCameraPermissionsAsync();
+          if (status !== "granted") {
+            Alert.alert("Permission needed", "Allow camera access to take a photo.");
+            return;
+          }
+          const result = await ImagePicker.launchCameraAsync({
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 0.7,
+          });
+          if (!result.canceled) setEditPhotoUri(result.assets[0].uri);
+        },
+      },
+      {
+        text: "Choose from Library",
+        onPress: async () => {
+          const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+          if (status !== "granted") {
+            Alert.alert("Permission needed", "Allow photo library access to change your profile picture.");
+            return;
+          }
+          const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 0.7,
+          });
+          if (!result.canceled) setEditPhotoUri(result.assets[0].uri);
+        },
+      },
+      { text: "Cancel", style: "cancel" },
+    ]);
   };
 
   const handleSaveProfile = async () => {
@@ -440,7 +464,7 @@ export default function ProfileScreen() {
                 <Text style={edit.photoEditIcon}>📷</Text>
               </View>
             </TouchableOpacity>
-            <Text style={edit.photoHint}>Tap to change photo</Text>
+            <Text style={edit.photoHint}>Tap to take or choose a photo</Text>
 
             {/* Name field */}
             <Text style={edit.fieldLabel}>FULL NAME</Text>
