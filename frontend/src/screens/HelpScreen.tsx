@@ -156,8 +156,6 @@ function SimReserve() {
       Animated.delay(100),
     ])).start();
   }, []);
-  const btnColor = tap.interpolate({ inputRange: [0, 0.5, 1], outputRange: ["#1E3DB8", "#1632a0", "#1E3DB8"] });
-  const successOpacity = success;
   return (
     <Phone height={240}>
       <View style={[sim.screen, { padding: 14, gap: 10 }]}>
@@ -177,11 +175,11 @@ function SimReserve() {
             <Text style={sim.confirmVal}>★ 4.8</Text>
           </View>
         </View>
-        <Animated.View style={[sim.reserveBtn, { backgroundColor: btnColor as any }]}>
+        <View style={sim.reserveBtn}>
           <Text style={sim.reserveBtnTxt}>Confirm & Reserve</Text>
           <TapRipple x={W / 2 - 14} y={22} trigger={tap} />
-        </Animated.View>
-        <Animated.View style={[sim.successBanner, { opacity: successOpacity }]}>
+        </View>
+        <Animated.View style={[sim.successBanner, { opacity: success }]}>
           <Text style={sim.successTxt}>✓  Reserved! Navigating…</Text>
         </Animated.View>
       </View>
@@ -209,8 +207,7 @@ function SimNavigate() {
         <View style={sim.mapHeader}><Text style={sim.mapHeaderTitle}>ParkPass</Text></View>
         {/* ETA chip */}
         <View style={sim.etaChip}>
-          <Text style={sim.etaTxt}>🧭  Navigating · </Text>
-          <Animated.Text style={sim.etaTxt}>{p.interpolate({ inputRange: [0, 1], outputRange: ["5 min", "0 min"] }) as any}</Animated.Text>
+          <Text style={sim.etaTxt}>🧭  Navigating to spot…</Text>
         </View>
       </View>
     </Phone>
@@ -220,18 +217,27 @@ function SimNavigate() {
 function SimArrived() {
   const tap = useRef(new Animated.Value(0)).current;
   const success = useRef(new Animated.Value(0)).current;
+  const colorAnim = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     Animated.loop(Animated.sequence([
       Animated.delay(1300),
       Animated.timing(tap, { toValue: 1, duration: 600, easing: Easing.out(Easing.quad), useNativeDriver: true }),
       Animated.timing(tap, { toValue: 0, duration: 100, useNativeDriver: true }),
-      Animated.timing(success, { toValue: 1, duration: 400, useNativeDriver: true }),
+      Animated.parallel([
+        Animated.timing(success, { toValue: 1, duration: 400, useNativeDriver: true }),
+        Animated.timing(colorAnim, { toValue: 1, duration: 400, useNativeDriver: false }),
+      ]),
       Animated.delay(1500),
-      Animated.timing(success, { toValue: 0, duration: 300, useNativeDriver: true }),
+      Animated.parallel([
+        Animated.timing(success, { toValue: 0, duration: 300, useNativeDriver: true }),
+        Animated.timing(colorAnim, { toValue: 0, duration: 300, useNativeDriver: false }),
+      ]),
       Animated.delay(100),
     ])).start();
   }, []);
-  const btnBg = success.interpolate({ inputRange: [0, 1], outputRange: ["#1E3DB8", "#16a34a"] });
+  const btnBg = colorAnim.interpolate({ inputRange: [0, 1], outputRange: ["#1E3DB8", "#16a34a"] });
+  const labelOpacity = success.interpolate({ inputRange: [0, 0.4, 1], outputRange: [1, 1, 0] });
+  const confirmedOpacity = success.interpolate({ inputRange: [0, 0.6, 1], outputRange: [0, 0, 1] });
   return (
     <Phone height={240}>
       <View style={[sim.screen, { padding: 14, gap: 10 }]}>
@@ -244,10 +250,15 @@ function SimArrived() {
             </View>
           </View>
         </View>
-        <Animated.View style={[sim.reserveBtn, { backgroundColor: btnBg as any, position: "relative" }]}>
-          <Animated.Text style={sim.reserveBtnTxt}>
-            {success.interpolate({ inputRange: [0, 0.5, 1], outputRange: ["I've Arrived  ✓", "I've Arrived  ✓", "Leaver Notified!"] }) as any}
-          </Animated.Text>
+        <Animated.View style={[sim.reserveBtn, { backgroundColor: btnBg, position: "relative" }]}>
+          <View style={{ alignItems: "center" }}>
+            <Animated.View style={{ opacity: labelOpacity }}>
+              <Text style={sim.reserveBtnTxt}>I've Arrived  ✓</Text>
+            </Animated.View>
+            <Animated.View style={{ position: "absolute", opacity: confirmedOpacity }}>
+              <Text style={sim.reserveBtnTxt}>Leaver Notified!</Text>
+            </Animated.View>
+          </View>
           <TapRipple x={W / 2 - 14} y={22} trigger={tap} />
         </Animated.View>
       </View>
@@ -431,33 +442,46 @@ function SimDriverReserved() {
 function SimLeaverConfirm() {
   const tap = useRef(new Animated.Value(0)).current;
   const success = useRef(new Animated.Value(0)).current;
+  const colorAnim = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     Animated.loop(Animated.sequence([
       Animated.delay(1300),
       Animated.timing(tap, { toValue: 1, duration: 600, useNativeDriver: true }),
       Animated.timing(tap, { toValue: 0, duration: 100, useNativeDriver: true }),
-      Animated.timing(success, { toValue: 1, duration: 500, useNativeDriver: true }),
+      Animated.parallel([
+        Animated.timing(success, { toValue: 1, duration: 500, useNativeDriver: true }),
+        Animated.timing(colorAnim, { toValue: 1, duration: 500, useNativeDriver: false }),
+      ]),
       Animated.delay(1500),
-      Animated.timing(success, { toValue: 0, duration: 300, useNativeDriver: true }),
+      Animated.parallel([
+        Animated.timing(success, { toValue: 0, duration: 300, useNativeDriver: true }),
+        Animated.timing(colorAnim, { toValue: 0, duration: 300, useNativeDriver: false }),
+      ]),
       Animated.delay(100),
     ])).start();
   }, []);
-  const btnBg = success.interpolate({ inputRange: [0, 1], outputRange: ["#1E3DB8", "#16a34a"] });
-  const tokensOpacity = success;
+  const btnBg = colorAnim.interpolate({ inputRange: [0, 1], outputRange: ["#1E3DB8", "#16a34a"] });
   const tokensY = success.interpolate({ inputRange: [0, 1], outputRange: [10, 0] });
+  const labelOpacity = success.interpolate({ inputRange: [0, 0.4, 1], outputRange: [1, 1, 0] });
+  const completedOpacity = success.interpolate({ inputRange: [0, 0.6, 1], outputRange: [0, 0, 1] });
   return (
     <Phone height={240}>
       <View style={[sim.screen, { padding: 14, gap: 10 }]}>
         <View style={sim.arrivedBanner}>
           <Text style={sim.arrivedBannerTxt}>🚗  Driver has arrived at your spot!</Text>
         </View>
-        <Animated.View style={[sim.reserveBtn, { backgroundColor: btnBg as any }]}>
-          <Animated.Text style={sim.reserveBtnTxt}>
-            {success.interpolate({ inputRange: [0, 0.5, 1], outputRange: ["I've Vacated  ✓", "I've Vacated  ✓", "Swap Complete!"] }) as any}
-          </Animated.Text>
+        <Animated.View style={[sim.reserveBtn, { backgroundColor: btnBg }]}>
+          <View style={{ alignItems: "center" }}>
+            <Animated.View style={{ opacity: labelOpacity }}>
+              <Text style={sim.reserveBtnTxt}>I've Vacated  ✓</Text>
+            </Animated.View>
+            <Animated.View style={{ position: "absolute", opacity: completedOpacity }}>
+              <Text style={sim.reserveBtnTxt}>Swap Complete!</Text>
+            </Animated.View>
+          </View>
           <TapRipple x={W / 2 - 14} y={22} trigger={tap} />
         </Animated.View>
-        <Animated.View style={[sim.tokensEarned, { opacity: tokensOpacity, transform: [{ translateY: tokensY }] }]}>
+        <Animated.View style={[sim.tokensEarned, { opacity: success, transform: [{ translateY: tokensY }] }]}>
           <Text style={sim.tokensEarnedTxt}>🪙 +2 tokens added to your balance!</Text>
         </Animated.View>
       </View>
