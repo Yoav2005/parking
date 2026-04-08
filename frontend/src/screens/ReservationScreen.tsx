@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View, Text, StyleSheet, TouchableOpacity, Alert,
   ActivityIndicator, Linking, ScrollView,
@@ -21,50 +21,54 @@ interface RouteInfo {
 
 function useRouteInfo(destLat: number, destLng: number, reservationId?: string): RouteInfo {
   const [info, setInfo] = useState<RouteInfo>({ etaMinutes: null, distanceKm: null, loading: true });
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const fetchRoute = useCallback(async () => {
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") {
-        setInfo({ etaMinutes: null, distanceKm: null, loading: false });
-        return;
+  // ── Location push: independent of OSRM, runs on its own interval ──────
+  useEffect(() => {
+    if (!reservationId) return;
+    const push = async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== "granted") { console.log("[Location] permission denied"); return; }
+        const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        const { latitude, longitude } = pos.coords;
+        console.log(`[Location] pushing ${latitude.toFixed(5)},${longitude.toFixed(5)} for ${reservationId}`);
+        await reservationsApi.updateDriverLocation(reservationId, latitude, longitude);
+        console.log("[Location] push OK");
+      } catch (e: any) {
+        console.log("[Location] push failed:", e?.response?.status, e?.message);
       }
-      const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-      const { latitude: dLat, longitude: dLng } = pos.coords;
+    };
+    push();
+    const t = setInterval(push, 15_000);
+    return () => clearInterval(t);
+  }, [reservationId]);
 
-      // Push driver location to backend so leaver can see it
-      if (reservationId) {
-        reservationsApi.updateDriverLocation(reservationId, dLat, dLng).catch(() => {});
-      }
-
-      const url =
-        `https://router.project-osrm.org/route/v1/driving/` +
-        `${dLng},${dLat};${destLng},${destLat}?overview=false`;
-      const res = await fetch(url);
-      const json = await res.json();
-      if (json.code === "Ok" && json.routes?.length) {
-        const route = json.routes[0];
-        setInfo({
-          etaMinutes: Math.ceil(route.duration / 60),
-          distanceKm: Math.round(route.distance / 100) / 10,
-          loading: false,
-        });
-      } else {
+  // ── OSRM route: separate interval for ETA/distance display ────────────
+  useEffect(() => {
+    if (!destLat || !destLng) return;
+    const fetchRoute = async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== "granted") { setInfo({ etaMinutes: null, distanceKm: null, loading: false }); return; }
+        const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        const { latitude: dLat, longitude: dLng } = pos.coords;
+        const url = `https://router.project-osrm.org/route/v1/driving/${dLng},${dLat};${destLng},${destLat}?overview=false`;
+        const res = await fetch(url);
+        const json = await res.json();
+        if (json.code === "Ok" && json.routes?.length) {
+          const route = json.routes[0];
+          setInfo({ etaMinutes: Math.ceil(route.duration / 60), distanceKm: Math.round(route.distance / 100) / 10, loading: false });
+        } else {
+          setInfo((prev) => ({ ...prev, loading: false }));
+        }
+      } catch {
         setInfo((prev) => ({ ...prev, loading: false }));
       }
-    } catch {
-      setInfo((prev) => ({ ...prev, loading: false }));
-    }
-  }, [destLat, destLng, reservationId]);
-
-  useEffect(() => {
-    fetchRoute();
-    intervalRef.current = setInterval(fetchRoute, 15_000);
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [fetchRoute]);
+    fetchRoute();
+    const t = setInterval(fetchRoute, 15_000);
+    return () => clearInterval(t);
+  }, [destLat, destLng]);
 
   return info;
 }
