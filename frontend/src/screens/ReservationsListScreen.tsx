@@ -129,6 +129,21 @@ export default function ReservationsListScreen({ onGoToMap, refreshKey }: Props)
     ]);
   };
 
+  // ALL hooks must be called unconditionally before any early returns
+  const driverData = active ?? arrivedSnapshot;
+  const isLeaver = myListing?.status === "RESERVED" && myListing?.leaver_id === user?.id;
+  const isListingAvailable = myListing?.status === "AVAILABLE" && myListing?.leaver_id === user?.id;
+
+  // Real ETA from driver's last known position → leaver's spot
+  const leaverEta = useLeaverEta(
+    activeLeaverRes?.driver_current_lat ?? null,
+    activeLeaverRes?.driver_current_lng ?? null,
+    myListing?.latitude ?? 0,
+    myListing?.longitude ?? 0,
+  );
+
+  const driverInitial = (myListing?.driver_name ?? "D").charAt(0).toUpperCase();
+
   if (loading) {
     return (
       <SafeAreaView style={styles.safe}>
@@ -141,7 +156,6 @@ export default function ReservationsListScreen({ onGoToMap, refreshKey }: Props)
 
   // Driver check is ABSOLUTE — if this user has an active reservation they placed,
   // they are acting as a driver right now and must never see the leaver screen.
-  const driverData = active ?? arrivedSnapshot;
   if (driverData) {
     return (
       <ReservationScreen
@@ -163,21 +177,6 @@ export default function ReservationsListScreen({ onGoToMap, refreshKey }: Props)
     );
   }
 
-  // Only show leaver view if:
-  // 1. Their listing is RESERVED (a driver booked it), AND
-  // 2. The user themselves is not the driver (active is null — guaranteed above)
-  const isLeaver = myListing?.status === "RESERVED" && myListing?.leaver_id === user?.id;
-  const isListingAvailable = myListing?.status === "AVAILABLE" && myListing?.leaver_id === user?.id;
-
-  // Real ETA from driver's last known position → leaver's spot
-  const leaverEta = useLeaverEta(
-    activeLeaverRes?.driver_current_lat ?? null,
-    activeLeaverRes?.driver_current_lng ?? null,
-    myListing?.latitude ?? 0,
-    myListing?.longitude ?? 0,
-  );
-
-  const driverInitial = (myListing?.driver_name ?? "D").charAt(0).toUpperCase();
   const carLine = myListing?.driver_car_make
     ? `${myListing.driver_car_make}${myListing.driver_car_model ? " " + myListing.driver_car_model : ""}`
     : null;
