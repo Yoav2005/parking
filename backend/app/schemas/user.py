@@ -7,6 +7,7 @@ class UserRegister(BaseModel):
     email: EmailStr
     password: str
     full_name: str
+    phone: str  # E.164 format e.g. +15551234567
 
 
 class UserLogin(BaseModel):
@@ -24,6 +25,7 @@ class UserOut(BaseModel):
     car_make: Optional[str] = None
     car_model: Optional[str] = None
     profile_photo_url: Optional[str] = None
+    phone: Optional[str] = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

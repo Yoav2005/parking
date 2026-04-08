@@ -47,5 +47,10 @@ class Settings(BaseSettings):
     RESEND_API_KEY: str = ""
     RESEND_FROM: str = "ParkPass <onboarding@resend.dev>"
 
+    # Twilio SMS OTP
+    TWILIO_ACCOUNT_SID: str = ""
+    TWILIO_AUTH_TOKEN: str = ""
+    TWILIO_FROM_NUMBER: str = ""  # e.g. +15551234567
+
 
 settings = Settings()

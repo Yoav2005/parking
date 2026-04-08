@@ -20,6 +20,7 @@ export default function AuthScreen({ onAuthenticated }: Props) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
+  const [phone, setPhone] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
   // OTP fields — 6 individual boxes
@@ -37,7 +38,8 @@ export default function AuthScreen({ onAuthenticated }: Props) {
         onAuthenticated();
       } else {
         if (!fullName) { Alert.alert("Error", "Please enter your name"); return; }
-        await registerInitiate(email, password, fullName);
+        if (!phone) { Alert.alert("Error", "Please enter your phone number"); return; }
+        await registerInitiate(email, password, fullName, phone);
         setStep("otp");
       }
     } catch (e: any) {
@@ -68,10 +70,10 @@ export default function AuthScreen({ onAuthenticated }: Props) {
 
   const handleResend = async () => {
     try {
-      await registerInitiate(email, password, fullName);
+      await registerInitiate(email, password, fullName, phone);
       setOtp(["", "", "", "", "", ""]);
       otpRefs.current[0]?.focus();
-      Alert.alert("Sent", "A new code has been sent to your email.");
+      Alert.alert("Sent", "A new code has been sent to your phone.");
     } catch (e: any) {
       Alert.alert("Error", e.response?.data?.detail || "Failed to resend");
     }
@@ -92,12 +94,12 @@ export default function AuthScreen({ onAuthenticated }: Props) {
 
             <View style={styles.card}>
               <View style={styles.otpIconCircle}>
-                <Text style={styles.otpIconText}>✉️</Text>
+                <Text style={styles.otpIconText}>📱</Text>
               </View>
-              <Text style={styles.cardTitle}>Check your email</Text>
+              <Text style={styles.cardTitle}>Check your phone</Text>
               <Text style={styles.cardSubtitle}>
-                We sent a 6-digit code to{"\n"}
-                <Text style={styles.emailHighlight}>{email}</Text>
+                We texted a 6-digit code to{"\n"}
+                <Text style={styles.emailHighlight}>{phone}</Text>
               </Text>
 
               {/* 6-box OTP input */}
@@ -129,7 +131,7 @@ export default function AuthScreen({ onAuthenticated }: Props) {
               </TouchableOpacity>
 
               <TouchableOpacity onPress={() => setStep("form")} style={styles.resendWrap}>
-                <Text style={styles.backText}>← Change email</Text>
+                <Text style={styles.backText}>← Change phone number</Text>
               </TouchableOpacity>
             </View>
           </ScrollView>
@@ -167,19 +169,35 @@ export default function AuthScreen({ onAuthenticated }: Props) {
             </Text>
 
             {mode === "register" && (
-              <View style={styles.fieldWrap}>
-                <Text style={styles.fieldLabel}>FULL NAME</Text>
-                <View style={styles.inputRow}>
-                  <Text style={styles.inputIcon}>👤</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Your name"
-                    value={fullName}
-                    onChangeText={setFullName}
-                    autoCapitalize="words"
-                  />
+              <>
+                <View style={styles.fieldWrap}>
+                  <Text style={styles.fieldLabel}>FULL NAME</Text>
+                  <View style={styles.inputRow}>
+                    <Text style={styles.inputIcon}>👤</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Your name"
+                      value={fullName}
+                      onChangeText={setFullName}
+                      autoCapitalize="words"
+                    />
+                  </View>
                 </View>
-              </View>
+                <View style={styles.fieldWrap}>
+                  <Text style={styles.fieldLabel}>PHONE NUMBER</Text>
+                  <View style={styles.inputRow}>
+                    <Text style={styles.inputIcon}>📱</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="+1 555 123 4567"
+                      value={phone}
+                      onChangeText={setPhone}
+                      keyboardType="phone-pad"
+                      autoComplete="tel"
+                    />
+                  </View>
+                </View>
+              </>
             )}
 
             <View style={styles.fieldWrap}>

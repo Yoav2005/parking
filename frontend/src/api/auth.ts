@@ -1,8 +1,8 @@
 import { apiClient } from "./client";
 
 export const authApi = {
-  registerInitiate: (email: string, password: string, full_name: string) =>
-    apiClient.post("/auth/register/initiate", { email, password, full_name }),
+  registerInitiate: (email: string, password: string, full_name: string, phone: string) =>
+    apiClient.post("/auth/register/initiate", { email, password, full_name, phone }),
 
   registerVerify: (email: string, otp: string) =>
     apiClient.post("/auth/register/verify", { email, otp }),

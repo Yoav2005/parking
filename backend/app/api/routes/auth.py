@@ -12,6 +12,7 @@ from app.models.user import User
 from app.schemas.user import UserRegister, UserLogin, TokenRefresh, UserOut, TokenResponse
 from app.schemas.common import ok, err
 from app.services.email_service import send_otp_email
+from app.services.sms_service import send_otp_sms
 import uuid
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -32,16 +33,21 @@ def _gen_otp() -> str:
 
 @router.post("/register/initiate")
 async def register_initiate(body: UserRegister, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db)):
-    """Step 1: validate fields, send OTP email, store pending registration in Redis."""
+    """Step 1: validate fields, send OTP via SMS, store pending registration in Redis."""
     existing = await db.execute(select(User).where(User.email == body.email))
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="Email already registered")
+
+    phone_taken = await db.execute(select(User).where(User.phone == body.phone))
+    if phone_taken.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail="Phone number already registered")
 
     otp = _gen_otp()
     pending = {
         "email": body.email,
         "hashed_password": hash_password(body.password),
         "full_name": body.full_name,
+        "phone": body.phone,
         "otp": otp,
     }
     try:
@@ -52,15 +58,16 @@ async def register_initiate(body: UserRegister, background_tasks: BackgroundTask
         print(f"[redis] failed to store OTP: {e}")
         raise HTTPException(status_code=503, detail=f"Registration unavailable (Redis error): {e}")
 
-    async def _send():
+    def _send_sms():
         try:
-            await send_otp_email(body.email, otp, body.full_name)
+            send_otp_sms(body.phone, otp)
+            print(f"[SMS] OTP sent to {body.phone}")
         except Exception as e:
-            print(f"[email] failed to send OTP: {e}")
+            print(f"[SMS] failed: {e}")
             print(f"[DEV] OTP for {body.email}: {otp}")
 
-    background_tasks.add_task(_send)
-    return ok({"message": "OTP sent", "email": body.email})
+    background_tasks.add_task(_send_sms)
+    return ok({"message": "OTP sent to your phone", "email": body.email, "phone": body.phone})
 
 
 @router.post("/register/verify")
@@ -96,6 +103,7 @@ async def register_verify(
         email=pending["email"],
         hashed_password=pending["hashed_password"],
         full_name=pending["full_name"],
+        phone=pending.get("phone"),
     )
     db.add(user)
     await db.commit()

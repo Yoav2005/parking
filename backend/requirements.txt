@@ -18,3 +18,4 @@ greenlet==3.0.3
 anyio==4.3.0
 aiosmtplib==3.0.1
 resend==2.10.0
+twilio==9.3.3
