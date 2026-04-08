@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import {
   View, Text, StyleSheet, TouchableOpacity, ActivityIndicator,
-  RefreshControl, SafeAreaView, Alert, ScrollView,
+  RefreshControl, SafeAreaView, Alert, ScrollView, Modal,
 } from "react-native";
 import MapView, { Marker } from "react-native-maps";
 import { reservationsApi } from "../api/reservations";
@@ -73,6 +73,7 @@ export default function ReservationsListScreen({ onGoToMap, refreshKey }: Props)
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
+  const [mapModalOpen, setMapModalOpen] = useState(false);
   const { user } = useAuthStore();
 
   // Must be called unconditionally before any early returns (Rules of Hooks)
@@ -95,6 +96,12 @@ export default function ReservationsListScreen({ onGoToMap, refreshKey }: Props)
   useEffect(() => {
     fetchAll().finally(() => setLoading(false));
   }, []);
+
+  // Poll every 15s to keep driver location fresh on the leaver screen
+  useEffect(() => {
+    const t = setInterval(() => { fetchAll(); }, 15_000);
+    return () => clearInterval(t);
+  }, [fetchAll]);
 
   // Refresh when parent signals a cancellation event
   useEffect(() => {
@@ -263,30 +270,36 @@ export default function ReservationsListScreen({ onGoToMap, refreshKey }: Props)
             )}
           </View>
 
-          {/* Map */}
-          <View style={styles.mapWrap}>
+          {/* Map — tap to open fullscreen */}
+          <TouchableOpacity activeOpacity={0.95} onPress={() => setMapModalOpen(true)} style={styles.mapWrap}>
             <MapView
               style={styles.map}
+              pointerEvents="none"
               initialRegion={{
                 latitude: myListing.latitude,
                 longitude: myListing.longitude,
-                latitudeDelta: 0.012,
-                longitudeDelta: 0.012,
+                latitudeDelta: 0.018,
+                longitudeDelta: 0.018,
               }}
-              scrollEnabled={false}
-              zoomEnabled={false}
             >
               <Marker coordinate={{ latitude: myListing.latitude, longitude: myListing.longitude }}>
                 <View style={styles.mapPMarker}>
                   <Text style={styles.mapPMarkerText}>P</Text>
                 </View>
               </Marker>
+              {activeLeaverRes?.driver_current_lat != null && (
+                <Marker coordinate={{ latitude: activeLeaverRes.driver_current_lat, longitude: activeLeaverRes.driver_current_lng }}>
+                  <View style={styles.mapDriverMarker}>
+                    <Text style={{ fontSize: 16 }}>🚗</Text>
+                  </View>
+                </Marker>
+              )}
             </MapView>
             <View style={styles.liveChip}>
               <Text style={styles.liveChipArrow}>➤</Text>
-              <Text style={styles.liveChipText}>Live Tracking Active</Text>
+              <Text style={styles.liveChipText}>Tap to track driver</Text>
             </View>
-          </View>
+          </TouchableOpacity>
 
           {/* Info banner */}
           <View style={styles.infoBanner}>
@@ -311,6 +324,62 @@ export default function ReservationsListScreen({ onGoToMap, refreshKey }: Props)
             onClose={() => setChatOpen(false)}
           />
         )}
+
+        {/* Fullscreen driver tracking map */}
+        <Modal visible={mapModalOpen} animationType="slide" statusBarTranslucent>
+          <SafeAreaView style={{ flex: 1, backgroundColor: "#000" }}>
+            <View style={styles.fullMapHeader}>
+              <Text style={styles.fullMapTitle}>Live Driver Tracking</Text>
+              <TouchableOpacity style={styles.fullMapClose} onPress={() => setMapModalOpen(false)}>
+                <Text style={styles.fullMapCloseTxt}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <MapView
+              style={{ flex: 1 }}
+              region={
+                activeLeaverRes?.driver_current_lat != null
+                  ? {
+                      latitude: (myListing.latitude + activeLeaverRes.driver_current_lat) / 2,
+                      longitude: (myListing.longitude + activeLeaverRes.driver_current_lng) / 2,
+                      latitudeDelta: Math.abs(myListing.latitude - activeLeaverRes.driver_current_lat) * 2.5 + 0.01,
+                      longitudeDelta: Math.abs(myListing.longitude - activeLeaverRes.driver_current_lng) * 2.5 + 0.01,
+                    }
+                  : {
+                      latitude: myListing.latitude,
+                      longitude: myListing.longitude,
+                      latitudeDelta: 0.02,
+                      longitudeDelta: 0.02,
+                    }
+              }
+            >
+              <Marker coordinate={{ latitude: myListing.latitude, longitude: myListing.longitude }} title="Your spot">
+                <View style={styles.mapPMarker}>
+                  <Text style={styles.mapPMarkerText}>P</Text>
+                </View>
+              </Marker>
+              {activeLeaverRes?.driver_current_lat != null && (
+                <Marker
+                  coordinate={{ latitude: activeLeaverRes.driver_current_lat, longitude: activeLeaverRes.driver_current_lng }}
+                  title={myListing.driver_name ?? "Driver"}
+                >
+                  <View style={styles.mapDriverMarker}>
+                    <Text style={{ fontSize: 22 }}>🚗</Text>
+                  </View>
+                </Marker>
+              )}
+            </MapView>
+            <View style={styles.fullMapEta}>
+              <Text style={styles.fullMapEtaLabel}>ETA</Text>
+              <Text style={styles.fullMapEtaValue}>
+                {activeLeaverRes?.driver_current_lat == null
+                  ? "Waiting for driver location…"
+                  : leaverEta.minutes != null
+                  ? `${leaverEta.minutes} min · ${leaverEta.distanceKm} km`
+                  : "Calculating…"}
+              </Text>
+            </View>
+          </SafeAreaView>
+        </Modal>
       </SafeAreaView>
     );
   }
@@ -513,4 +582,29 @@ const styles = StyleSheet.create({
   cancelListingText: {
     fontSize: 14, color: "#6B7280", fontWeight: "600",
   },
+
+  // Driver marker on map
+  mapDriverMarker: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: "#fff", alignItems: "center", justifyContent: "center",
+    shadowColor: "#000", shadowOpacity: 0.25, shadowRadius: 4, elevation: 4,
+  },
+
+  // Fullscreen map modal
+  fullMapHeader: {
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    paddingHorizontal: 16, paddingVertical: 12, backgroundColor: "#111827",
+  },
+  fullMapTitle: { fontSize: 17, fontWeight: "800", color: "#fff" },
+  fullMapClose: {
+    width: 34, height: 34, borderRadius: 17,
+    backgroundColor: "rgba(255,255,255,0.15)", alignItems: "center", justifyContent: "center",
+  },
+  fullMapCloseTxt: { fontSize: 15, color: "#fff", fontWeight: "700" },
+  fullMapEta: {
+    backgroundColor: "#111827", paddingVertical: 14, paddingHorizontal: 20,
+    flexDirection: "row", alignItems: "center", gap: 10,
+  },
+  fullMapEtaLabel: { fontSize: 11, fontWeight: "700", color: "rgba(255,255,255,0.5)", letterSpacing: 1 },
+  fullMapEtaValue: { fontSize: 16, fontWeight: "800", color: "#fff" },
 });
