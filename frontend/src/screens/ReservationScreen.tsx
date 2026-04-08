@@ -1,15 +1,67 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View, Text, StyleSheet, TouchableOpacity, Alert,
   ActivityIndicator, Linking, ScrollView,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import MapView, { Marker } from "react-native-maps";
+import * as Location from "expo-location";
 import { reservationsApi } from "../api/reservations";
 import { ratingsApi } from "../api/ratings";
 import { ChatModal } from "../components/ChatModal";
 import { setReservationCompletedHandler } from "../hooks/useWebSocket";
 import { useAddress } from "../hooks/useAddress";
+
+// ── Real-world routing via OSRM (free, no API key) ─────────────────────
+interface RouteInfo {
+  etaMinutes: number | null;   // driving time in minutes
+  distanceKm: number | null;   // driving distance in km
+  loading: boolean;
+}
+
+function useRouteInfo(destLat: number, destLng: number): RouteInfo {
+  const [info, setInfo] = useState<RouteInfo>({ etaMinutes: null, distanceKm: null, loading: true });
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const fetchRoute = useCallback(async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        setInfo({ etaMinutes: null, distanceKm: null, loading: false });
+        return;
+      }
+      const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const { latitude: dLat, longitude: dLng } = pos.coords;
+      const url =
+        `https://router.project-osrm.org/route/v1/driving/` +
+        `${dLng},${dLat};${destLng},${destLat}?overview=false`;
+      const res = await fetch(url);
+      const json = await res.json();
+      if (json.code === "Ok" && json.routes?.length) {
+        const route = json.routes[0];
+        setInfo({
+          etaMinutes: Math.ceil(route.duration / 60),
+          distanceKm: Math.round(route.distance / 100) / 10, // 1 decimal km
+          loading: false,
+        });
+      } else {
+        setInfo((prev) => ({ ...prev, loading: false }));
+      }
+    } catch {
+      setInfo((prev) => ({ ...prev, loading: false }));
+    }
+  }, [destLat, destLng]);
+
+  useEffect(() => {
+    fetchRoute();
+    intervalRef.current = setInterval(fetchRoute, 15_000);
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [fetchRoute]);
+
+  return info;
+}
 
 interface Props {
   reservationId: string;
@@ -37,15 +89,10 @@ export default function ReservationScreen({
   const [step, setStep] = useState<"navigating" | "waitingLeaver" | "rating">("navigating");
   const [isLoading, setIsLoading] = useState(false);
   const [rating, setRating] = useState(0);
-  const [elapsed, setElapsed] = useState(0);
   const [chatOpen, setChatOpen] = useState(false);
 
   const resolvedAddress = useAddress(spotAddress);
-
-  useEffect(() => {
-    const t = setInterval(() => setElapsed((s) => s + 1), 1000);
-    return () => clearInterval(t);
-  }, []);
+  const { etaMinutes, distanceKm, loading: routeLoading } = useRouteInfo(spotLat, spotLng);
 
   // When leaver confirms the swap via WS, move to rating
   useEffect(() => {
@@ -58,11 +105,12 @@ export default function ReservationScreen({
     return () => setReservationCompletedHandler(null);
   }, [reservationId]);
 
-  const totalSecs = 10 * 60;
-  const remaining = Math.max(0, totalSecs - elapsed);
-  const mins = Math.floor(remaining / 60);
-  const secs = remaining % 60;
-  const arrivalDisplay = `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+  const etaDisplay = routeLoading
+    ? "..."
+    : etaMinutes !== null
+    ? `${etaMinutes} min`
+    : "N/A";
+  const distDisplay = distanceKm !== null ? `${distanceKm} km` : null;
 
   const openNavigation = () => {
     Linking.openURL(`https://maps.google.com/?q=${spotLat},${spotLng}`);
@@ -194,16 +242,16 @@ export default function ReservationScreen({
         {/* Stats bar overlaid on map bottom */}
         <View style={styles.statsBar}>
           <View style={styles.statItem}>
-            <Text style={styles.statLabel}>ARRIVAL TIME</Text>
-            <Text style={styles.statValue}>{arrivalDisplay}</Text>
+            <Text style={styles.statLabel}>ETA</Text>
+            <Text style={styles.statValue}>{etaDisplay}</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
-            <Text style={styles.statLabel}>STATUS</Text>
-            <View style={styles.statusPill}>
-              <View style={styles.statusDot} />
-              <Text style={styles.statusText}>Reserved</Text>
-            </View>
+            <Text style={styles.statLabel}>DISTANCE</Text>
+            {distDisplay
+              ? <Text style={styles.statValue}>{distDisplay}</Text>
+              : <View style={styles.statusPill}><View style={styles.statusDot} /><Text style={styles.statusText}>Reserved</Text></View>
+            }
           </View>
         </View>
       </View>
