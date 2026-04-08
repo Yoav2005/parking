@@ -18,6 +18,10 @@ import uuid
 
 router = APIRouter(prefix="/reservations", tags=["reservations"])
 
+# In-memory store for live driver locations (keyed by reservation_id)
+# Resets on server restart — fine for active sessions only
+_driver_locations: dict[str, tuple[float, float]] = {}
+
 
 @router.get("")
 async def list_reservations(
@@ -68,6 +72,7 @@ async def list_reservations(
     for res in leaver_reservations:
         spot = leaver_spot_ids.get(res.spot_id)
         driver = await db.get(User, res.driver_id) if res.driver_id else None
+        driver_loc = _driver_locations.get(res.id)
         out.append({
             **ReservationOut.model_validate(res).model_dump(mode="json"),
             "role": "leaver",
@@ -78,10 +83,30 @@ async def list_reservations(
             "driver_id": res.driver_id,
             "driver_name": driver.full_name if driver else None,
             "driver_rating": driver.avg_rating if driver else None,
+            "driver_current_lat": driver_loc[0] if driver_loc else None,
+            "driver_current_lng": driver_loc[1] if driver_loc else None,
         })
 
     out.sort(key=lambda r: r["created_at"], reverse=True)
     return ok(out)
+
+
+@router.patch("/{reservation_id}/driver-location")
+async def update_driver_location(
+    reservation_id: str,
+    lat: float,
+    lng: float,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Driver pushes their live GPS coords. Stored in-memory for leaver to poll."""
+    reservation = await db.get(Reservation, reservation_id)
+    if not reservation:
+        raise HTTPException(status_code=404, detail="Reservation not found")
+    if reservation.driver_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not your reservation")
+    _driver_locations[reservation_id] = (lat, lng)
+    return ok({"stored": True})
 
 
 @router.post("")

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import {
   View, Text, StyleSheet, TouchableOpacity, ActivityIndicator,
   RefreshControl, SafeAreaView, Alert, ScrollView,
@@ -10,6 +10,51 @@ import { useAuthStore } from "../store/authStore";
 import { ChatModal } from "../components/ChatModal";
 import ReservationScreen from "./ReservationScreen";
 import { useAddress } from "../hooks/useAddress";
+
+// ── OSRM ETA for leaver (driver coords → spot) ────────────────────────
+function useLeaverEta(
+  driverLat: number | null,
+  driverLng: number | null,
+  spotLat: number,
+  spotLng: number,
+) {
+  const [eta, setEta] = useState<{ minutes: number | null; distanceKm: number | null; loading: boolean }>(
+    { minutes: null, distanceKm: null, loading: false }
+  );
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const fetch_ = useCallback(async () => {
+    if (driverLat == null || driverLng == null) return;
+    setEta((p) => ({ ...p, loading: true }));
+    try {
+      const url =
+        `https://router.project-osrm.org/route/v1/driving/` +
+        `${driverLng},${driverLat};${spotLng},${spotLat}?overview=false`;
+      const res = await fetch(url);
+      const json = await res.json();
+      if (json.code === "Ok" && json.routes?.length) {
+        const route = json.routes[0];
+        setEta({
+          minutes: Math.ceil(route.duration / 60),
+          distanceKm: Math.round(route.distance / 100) / 10,
+          loading: false,
+        });
+      } else {
+        setEta((p) => ({ ...p, loading: false }));
+      }
+    } catch {
+      setEta((p) => ({ ...p, loading: false }));
+    }
+  }, [driverLat, driverLng, spotLat, spotLng]);
+
+  useEffect(() => {
+    fetch_();
+    intervalRef.current = setInterval(fetch_, 15_000);
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+  }, [fetch_]);
+
+  return eta;
+}
 
 interface Props {
   onGoToMap: () => void;
@@ -23,6 +68,8 @@ export default function ReservationsListScreen({ onGoToMap, refreshKey }: Props)
   const [arrivedSnapshot, setArrivedSnapshot] = useState<any>(null);
   // Leaver side
   const [myListing, setMyListing] = useState<any>(null);
+  // Active leaver reservation (has driver_current_lat/lng from API)
+  const [activeLeaverRes, setActiveLeaverRes] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
@@ -38,7 +85,8 @@ export default function ReservationsListScreen({ onGoToMap, refreshKey }: Props)
         spotsApi.getMyListing(),
       ]);
       const all: any[] = resData.data.data ?? [];
-      setActive(all.find((r) => r.status === "ACTIVE") ?? null);
+      setActive(all.find((r) => r.status === "ACTIVE" && r.role === "driver") ?? null);
+      setActiveLeaverRes(all.find((r) => r.status === "ACTIVE" && r.role === "leaver") ?? null);
       setMyListing(listingData.data.data ?? null);
     } catch {}
   }, []);
@@ -120,6 +168,14 @@ export default function ReservationsListScreen({ onGoToMap, refreshKey }: Props)
   const isLeaver = myListing?.status === "RESERVED" && myListing?.leaver_id === user?.id;
   const isListingAvailable = myListing?.status === "AVAILABLE" && myListing?.leaver_id === user?.id;
 
+  // Real ETA from driver's last known position → leaver's spot
+  const leaverEta = useLeaverEta(
+    activeLeaverRes?.driver_current_lat ?? null,
+    activeLeaverRes?.driver_current_lng ?? null,
+    myListing?.latitude ?? 0,
+    myListing?.longitude ?? 0,
+  );
+
   const driverInitial = (myListing?.driver_name ?? "D").charAt(0).toUpperCase();
   const carLine = myListing?.driver_car_make
     ? `${myListing.driver_car_make}${myListing.driver_car_model ? " " + myListing.driver_car_model : ""}`
@@ -161,12 +217,22 @@ export default function ReservationsListScreen({ onGoToMap, refreshKey }: Props)
           <View style={styles.arrivalCard}>
             <View style={styles.arrivalTop}>
               <Text style={styles.arrivalLabel}>ESTIMATED ARRIVAL</Text>
-              <Text style={styles.arrivalMins}>8 mins</Text>
+              <Text style={styles.arrivalMins}>
+                {activeLeaverRes?.driver_current_lat == null
+                  ? "Waiting…"
+                  : leaverEta.loading
+                  ? "..."
+                  : leaverEta.minutes != null
+                  ? `${leaverEta.minutes} min`
+                  : "—"}
+              </Text>
             </View>
             <View style={styles.arrivalDivider} />
             <View style={styles.arrivalBottom}>
               <Text style={styles.arrivalDistIcon}>↕</Text>
-              <Text style={styles.arrivalDist}>1.2 miles away</Text>
+              <Text style={styles.arrivalDist}>
+                {leaverEta.distanceKm != null ? `${leaverEta.distanceKm} km away` : "Locating driver…"}
+              </Text>
             </View>
           </View>
 

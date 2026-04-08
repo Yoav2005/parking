@@ -14,12 +14,12 @@ import { useAddress } from "../hooks/useAddress";
 
 // ── Real-world routing via OSRM (free, no API key) ─────────────────────
 interface RouteInfo {
-  etaMinutes: number | null;   // driving time in minutes
-  distanceKm: number | null;   // driving distance in km
+  etaMinutes: number | null;
+  distanceKm: number | null;
   loading: boolean;
 }
 
-function useRouteInfo(destLat: number, destLng: number): RouteInfo {
+function useRouteInfo(destLat: number, destLng: number, reservationId?: string): RouteInfo {
   const [info, setInfo] = useState<RouteInfo>({ etaMinutes: null, distanceKm: null, loading: true });
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -32,6 +32,12 @@ function useRouteInfo(destLat: number, destLng: number): RouteInfo {
       }
       const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
       const { latitude: dLat, longitude: dLng } = pos.coords;
+
+      // Push driver location to backend so leaver can see it
+      if (reservationId) {
+        reservationsApi.updateDriverLocation(reservationId, dLat, dLng).catch(() => {});
+      }
+
       const url =
         `https://router.project-osrm.org/route/v1/driving/` +
         `${dLng},${dLat};${destLng},${destLat}?overview=false`;
@@ -41,7 +47,7 @@ function useRouteInfo(destLat: number, destLng: number): RouteInfo {
         const route = json.routes[0];
         setInfo({
           etaMinutes: Math.ceil(route.duration / 60),
-          distanceKm: Math.round(route.distance / 100) / 10, // 1 decimal km
+          distanceKm: Math.round(route.distance / 100) / 10,
           loading: false,
         });
       } else {
@@ -50,7 +56,7 @@ function useRouteInfo(destLat: number, destLng: number): RouteInfo {
     } catch {
       setInfo((prev) => ({ ...prev, loading: false }));
     }
-  }, [destLat, destLng]);
+  }, [destLat, destLng, reservationId]);
 
   useEffect(() => {
     fetchRoute();
@@ -92,7 +98,7 @@ export default function ReservationScreen({
   const [chatOpen, setChatOpen] = useState(false);
 
   const resolvedAddress = useAddress(spotAddress);
-  const { etaMinutes, distanceKm, loading: routeLoading } = useRouteInfo(spotLat, spotLng);
+  const { etaMinutes, distanceKm, loading: routeLoading } = useRouteInfo(spotLat, spotLng, reservationId);
 
   // When leaver confirms the swap via WS, move to rating
   useEffect(() => {
