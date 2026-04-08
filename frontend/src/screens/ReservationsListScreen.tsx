@@ -85,8 +85,9 @@ export default function ReservationsListScreen({ onGoToMap, refreshKey }: Props)
         spotsApi.getMyListing(),
       ]);
       const all: any[] = resData.data.data ?? [];
-      setActive(all.find((r) => r.status === "ACTIVE" && r.role === "driver") ?? null);
-      setActiveLeaverRes(all.find((r) => r.status === "ACTIVE" && r.role === "leaver") ?? null);
+      const currentUserId = useAuthStore.getState().user?.id;
+      setActive(all.find((r) => r.status === "ACTIVE" && r.driver_id === currentUserId) ?? null);
+      setActiveLeaverRes(all.find((r) => r.status === "ACTIVE" && r.driver_id !== currentUserId) ?? null);
       setMyListing(listingData.data.data ?? null);
     } catch {}
   }, []);
