@@ -117,7 +117,6 @@ export default function SpotDetailScreen({ spotId, onReserved, onBack }: Props) 
               <Text style={styles.infoLabel}>ESTIMATED COST</Text>
               <Text style={styles.infoValue}>
                 <Text style={styles.infoValueBig}>${spot.price.toFixed(2)}</Text>
-                <Text style={styles.infoValueSub}> /hr</Text>
               </Text>
             </View>
             <View style={styles.infoCard}>
