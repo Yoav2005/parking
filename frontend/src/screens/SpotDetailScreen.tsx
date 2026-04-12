@@ -135,7 +135,7 @@ export default function SpotDetailScreen({ spotId, onReserved, onBack }: Props) 
               <Text style={styles.leaverAvatarText}>🌿</Text>
             </View>
             <View style={styles.leaverInfo}>
-              <Text style={styles.leaverName}>Leaver</Text>
+              <Text style={styles.leaverName}>{spot.leaver_name || "Leaver"}</Text>
               <Text style={styles.leaverVerified}>Verified Leaver</Text>
             </View>
             <View style={styles.leaverRating}>
