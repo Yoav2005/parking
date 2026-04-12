@@ -771,6 +771,30 @@ async def _admin_user_detail_route(
     return await admin_user_detail(user_id, db, admin)
 
 
+@router.post("/users/{user_id}/adjust-tokens")
+async def adjust_tokens(
+    user_id: str,
+    amount: int,
+    reason: str = "",
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Add or subtract tokens from a user. amount can be negative."""
+    user = await db.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    before = user.token_balance
+    user.token_balance = max(0, user.token_balance + amount)
+    await db.commit()
+    return ok({
+        "user_id": user_id,
+        "before": before,
+        "after": user.token_balance,
+        "delta": amount,
+        "reason": reason,
+    })
+
+
 @router.post("/make-admin")
 async def make_admin(
     email: str,

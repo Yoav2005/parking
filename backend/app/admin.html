@@ -2255,6 +2255,30 @@
   });
 
   // ── User Modal ─────────────────────────────────────────────────────────
+  async function adjustTokens(userId) {
+    const amountEl = document.getElementById('token-adjust-amount');
+    const reasonEl = document.getElementById('token-adjust-reason');
+    const resultEl = document.getElementById('token-adjust-result');
+    const amount = parseInt(amountEl.value, 10);
+    if (isNaN(amount) || amount === 0) { resultEl.style.color='#dc2626'; resultEl.textContent = 'Enter a non-zero amount.'; return; }
+    const reason = reasonEl.value.trim();
+    const token = getToken();
+    const params = new URLSearchParams({ amount, reason });
+    const resp = await fetch(`/admin/users/${userId}/adjust-tokens?${params}`, {
+      method: 'POST', headers: { Authorization: 'Bearer ' + token }
+    });
+    const body = await resp.json();
+    if (!resp.ok) { resultEl.style.color='#dc2626'; resultEl.textContent = body.detail || 'Error'; return; }
+    const d = body.data;
+    resultEl.style.color = '#16a34a';
+    resultEl.textContent = `Done: ${d.before} → ${d.after} tokens (${d.delta > 0 ? '+' : ''}${d.delta})`;
+    amountEl.value = '';
+    reasonEl.value = '';
+    // Update the token display in the modal
+    const tokenEls = document.querySelectorAll('#user-modal-body [data-token-balance]');
+    tokenEls.forEach(el => el.textContent = '🪙 ' + d.after);
+  }
+
   function closeUserModal() {
     $('user-modal-overlay').classList.remove('visible');
   }
@@ -2313,7 +2337,7 @@
         </div>
         <div style="background:#f9fafb;border-radius:10px;padding:12px;">
           <div style="font-size:10px;font-weight:700;color:#9ca3af;letter-spacing:.8px;margin-bottom:4px;">TOKENS</div>
-          <div style="font-size:18px;font-weight:800;color:#78350f;">🪙 ${u.token_balance}</div>
+          <div style="font-size:18px;font-weight:800;color:#78350f;" data-token-balance="1">🪙 ${u.token_balance}</div>
         </div>
         <div style="background:#f9fafb;border-radius:10px;padding:12px;">
           <div style="font-size:10px;font-weight:700;color:#9ca3af;letter-spacing:.8px;margin-bottom:4px;">CAR</div>
@@ -2323,6 +2347,18 @@
           <div style="font-size:10px;font-weight:700;color:#9ca3af;letter-spacing:.8px;margin-bottom:4px;">JOINED</div>
           <div style="font-size:12px;font-weight:600;color:#374151;">${escHtml(u.created_at)}</div>
         </div>
+      </div>
+      <div style="padding:16px 24px;border-bottom:1px solid #f3f4f6;">
+        <div style="font-family:Manrope,sans-serif;font-weight:700;font-size:14px;color:#111827;margin-bottom:10px;">Adjust Tokens</div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <input id="token-adjust-amount" type="number" placeholder="e.g. 10 or -5"
+            style="border:1.5px solid #e5e7eb;border-radius:8px;padding:8px 12px;font-size:14px;width:140px;outline:none;" />
+          <input id="token-adjust-reason" type="text" placeholder="Reason (optional)"
+            style="border:1.5px solid #e5e7eb;border-radius:8px;padding:8px 12px;font-size:14px;flex:1;min-width:140px;outline:none;" />
+          <button onclick="adjustTokens('${escHtml(u.id)}')"
+            style="background:#003d9b;color:#fff;border:none;border-radius:8px;padding:8px 18px;font-size:14px;font-weight:700;cursor:pointer;">Apply</button>
+        </div>
+        <div id="token-adjust-result" style="font-size:13px;margin-top:8px;color:#16a34a;"></div>
       </div>
       <div style="padding:16px 24px 20px;">
         <div style="font-family:Manrope,sans-serif;font-weight:700;font-size:14px;color:#111827;margin-bottom:10px;">Reservations (${u.reservations.length})</div>
