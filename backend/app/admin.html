@@ -1711,6 +1711,11 @@
     if (detailMap) { detailMap.remove(); detailMap = null; }
   }
 
+  function userLink(name, userId) {
+    if (!userId) return escHtml(name || '—');
+    return `<a href="#" onclick="event.preventDefault();closeDetailModal();openUserModal('${escHtml(userId)}')" style="color:#003d9b;font-weight:700;text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${escHtml(name || '—')}</a>`;
+  }
+
   function openSpotModal(s) {
     openDetailModal(
       s.address,
@@ -1721,7 +1726,7 @@
         ['Spot ID', escHtml(s.label)],
         ['Status', statusBadge(s.status)],
         ['Price', '$' + s.price.toFixed(2)],
-        ['Leaver', escHtml(s.leaver_name)],
+        ['Leaver', userLink(s.leaver_name, s.leaver_id)],
         ['Leaver Email', escHtml(s.leaver_email || '—')],
         ['Leaving In', s.leaving_in_minutes === 0 ? 'Now' : s.leaving_in_minutes + ' min'],
         ['Listed At', escHtml(s.created_at)],
@@ -1739,9 +1744,9 @@
       [
         ['Spot ID', escHtml(tx.spot_id)],
         ['Status', statusBadge(tx.status)],
-        ['Driver', escHtml(tx.driver_name || tx.driver || '—')],
+        ['Driver', userLink(tx.driver_name || tx.driver, tx.driver_id)],
         ['Driver Email', escHtml(tx.driver_email || '—')],
-        ['Leaver', escHtml(tx.leaver_name || tx.leaver || '—')],
+        ['Leaver', userLink(tx.leaver_name || tx.leaver, tx.leaver_id)],
         ['Leaver Email', escHtml(tx.leaver_email || '—')],
         ['Amount', '$' + (tx.amount || 0).toFixed(2)],
         ['Platform Fee', '$' + (tx.platform_fee || 0).toFixed(2)],
@@ -2311,13 +2316,14 @@
           <span style="background:${r.role==='driver'?'#dbeafe':'#dcfce7'};color:${r.role==='driver'?'#1e3db8':'#16a34a'};padding:2px 7px;border-radius:5px;font-size:10px;font-weight:800;">${r.role.toUpperCase()}</span>
         </td>
         <td style="padding:10px 12px;font-size:13px;color:#374151;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(r.spot_address)}</td>
-        <td style="padding:10px 12px;font-size:13px;color:#6b7280;">${escHtml(r.other_name)}</td>
+        <td style="padding:10px 12px;font-size:13px;color:#6b7280;">${userLink(r.other_name, r.other_id)}</td>
+        <td style="padding:10px 12px;font-size:13px;font-weight:700;color:#111827;">$${r.amount.toFixed(2)}</td>
         <td style="padding:10px 12px;">
           <span style="background:${statusBg[r.status]||'#f3f4f6'};color:${statusColor[r.status]||'#374151'};padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700;">${r.status}</span>
         </td>
         <td style="padding:10px 12px;font-size:12px;color:#9ca3af;">${escHtml(r.created_at)}</td>
       </tr>`).join('')
-      : `<tr><td colspan="5" style="padding:24px;text-align:center;color:#9ca3af;">No reservations yet</td></tr>`;
+      : `<tr><td colspan="6" style="padding:24px;text-align:center;color:#9ca3af;">No reservations yet</td></tr>`;
 
     $('user-modal-body').innerHTML = `
       <div style="display:flex;align-items:center;gap:16px;padding:20px 24px;border-bottom:1px solid #f3f4f6;">
@@ -2369,6 +2375,7 @@
                 <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;color:#9ca3af;letter-spacing:.8px;">ROLE</th>
                 <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;color:#9ca3af;letter-spacing:.8px;">ADDRESS</th>
                 <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;color:#9ca3af;letter-spacing:.8px;">OTHER PARTY</th>
+                <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;color:#9ca3af;letter-spacing:.8px;">AMOUNT</th>
                 <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;color:#9ca3af;letter-spacing:.8px;">STATUS</th>
                 <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;color:#9ca3af;letter-spacing:.8px;">DATE</th>
               </tr>
