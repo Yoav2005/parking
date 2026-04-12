@@ -49,8 +49,8 @@ def _spot_label(spot_id: str) -> str:
 
 
 def _fmt_date(dt: datetime) -> str:
-    """Format datetime as 'Jan 1, 2024'"""
-    return dt.strftime("%b %-d, %Y") if dt else ""
+    """Format datetime as 'Jan 1, 2024 14:32'"""
+    return dt.strftime("%b %-d, %Y %H:%M") if dt else ""
 
 
 @router.get("/stats")
